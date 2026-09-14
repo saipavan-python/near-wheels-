@@ -19,6 +19,8 @@ steps:
     timeout: '1200s'
 
   # 2. Deploy to Cloud Run (zero-downtime, requests-per-second autoscaling)
+  # Razorpay secrets are OPTIONAL — leave them empty and the app runs in simulated mode.
+  # When you get Razorpay credentials, update them in Secret Manager and uncomment below.
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'bash'
     args:
@@ -35,8 +37,7 @@ steps:
           --max-instances=10 \
           --port=8080 \
           --service-account="$_SERVICE_ACCOUNT" \
-          --set-env-vars="DATABASE_URL=$${_DATABASE_URL},SESSION_SECRET=$${_SESSION_SECRET},ADMIN_PHONE=$${_ADMIN_PHONE},ADMIN_PASSWORD=$${_ADMIN_PASSWORD},DEMO_CUSTOMER_PHONE=$${_DEMO_CUSTOMER_PHONE},GEMINI_API_KEY=$${_GEMINI_API_KEY},GEMINI_MODEL=$${_GEMINI_MODEL},PAYMENT_MODE=$${_PAYMENT_MODE}" \
-          --set-secrets="RAZORPAY_KEY_ID=$${_RAZORPAY_KEY_ID_SECRET}:latest,RAZORPAY_KEY_SECRET=$${_RAZORPAY_KEY_SECRET_SECRET}:latest,RAZORPAY_WEBHOOK_SECRET=$${_RAZORPAY_WEBHOOK_SECRET_SECRET}:latest,PAYMENT_WEBHOOK_SECRET=$${_PAYMENT_WEBHOOK_SECRET_SECRET}:latest"
+          --set-env-vars="DATABASE_URL=$${_DATABASE_URL},SESSION_SECRET=$${_SESSION_SECRET},ADMIN_PHONE=$${_ADMIN_PHONE},ADMIN_PASSWORD=$${_ADMIN_PASSWORD},DEMO_CUSTOMER_PHONE=$${_DEMO_CUSTOMER_PHONE},GEMINI_API_KEY=$${_GEMINI_API_KEY},GEMINI_MODEL=$${_GEMINI_MODEL},PAYMENT_MODE=$${_PAYMENT_MODE},NEXT_PUBLIC_RAZORPAY_KEY_ID=$${_RAZORPAY_KEY_ID},RAZORPAY_KEY_ID=$${_RAZORPAY_KEY_ID},RAZORPAY_KEY_SECRET=$${_RAZORPAY_KEY_SECRET},RAZORPAY_WEBHOOK_SECRET=$${_RAZORPAY_WEBHOOK_SECRET},PAYMENT_WEBHOOK_SECRET=$${_PAYMENT_WEBHOOK_SECRET}"
 
 images:
   - '$_REGION-docker.pkg.dev/$PROJECT_ID/near-wheels/near-wheels:${_TAG}'
@@ -47,6 +48,18 @@ substitutions:
   _NEXT_PUBLIC_RAZORPAY_KEY_ID: ''
   _NEXT_PUBLIC_SITE_URL: https://nearwheels.example.com
   _SERVICE_ACCOUNT: ''
+  _DATABASE_URL: ''
+  _SESSION_SECRET: ''
+  _ADMIN_PHONE: ''
+  _ADMIN_PASSWORD: ''
+  _DEMO_CUSTOMER_PHONE: ''
+  _GEMINI_API_KEY: ''
+  _GEMINI_MODEL: gemini-1.5-flash
+  _PAYMENT_MODE: simulated
+  _RAZORPAY_KEY_ID: ''
+  _RAZORPAY_KEY_SECRET: ''
+  _RAZORPAY_WEBHOOK_SECRET: ''
+  _PAYMENT_WEBHOOK_SECRET: ''
 
 options:
   dynamic_substitutions: true

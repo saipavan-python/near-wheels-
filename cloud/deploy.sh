@@ -42,6 +42,10 @@ _DEMO_CUSTOMER_PHONE="${DEMO_CUSTOMER_PHONE:-}",\
 _GEMINI_API_KEY="${GEMINI_API_KEY:-}",\
 _GEMINI_MODEL="${GEMINI_MODEL:-gemini-1.5-flash}",\
 _PAYMENT_MODE="${PAYMENT_MODE:-simulated}",\
+_RAZORPAY_KEY_ID="${RAZORPAY_KEY_ID:-}",\
+_RAZORPAY_KEY_SECRET="${RAZORPAY_KEY_SECRET:-}",\
+_RAZORPAY_WEBHOOK_SECRET="${RAZORPAY_WEBHOOK_SECRET:-}",\
+_PAYMENT_WEBHOOK_SECRET="${PAYMENT_WEBHOOK_SECRET:-}",\
 _SERVICE_ACCOUNT="${SERVICE_ACCOUNT:-}" \
   .
 
@@ -50,6 +54,6 @@ echo "==> Done. Your app is live at:"
 echo "  https://near-wheels-${PROJECT_ID}.${REGION}.run.app"
 echo ""
 echo "Remaining manual steps:"
-echo "  1. Create the RAZORPAY_* secret versions in Secret Manager, filled in cloudbuild.yaml substitutions."
-echo "  2. Point your custom domain (App Engine/Cloud Run custom domains) at the *.run.app URL."
+echo "  1. Add Razorpay creds later: edit paywork or re-run deploy.sh after filling RAZORPAY_* in .env (payments auto-switch from simulated to live)."
+echo "  2. Point your custom domain (Cloud Run custom domains) at the *.run.app URL."
 echo "  3. For persistent uploads, mount a Cloud Storage bucket at /app/data/uploads (see README)."
