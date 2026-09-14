@@ -30,14 +30,20 @@ export interface YatraTrip {
   verified: boolean;
 }
 
-const INITIAL_TRIPS: YatraTrip[] = [
+const INITIAL_TRIPS: YatraTrip[] = (() => {
+  const demoOffset = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.toISOString().slice(0, 10);
+  };
+  return [
   {
     id: "yt-1",
     packageName: "Sri Venkateswara Tirupati Special Darshan Yatra",
     pricePerHead: 1499,
     totalSeats: 40,
     availableSeats: 4,
-    departureDate: "2026-08-30",
+    departureDate: demoOffset(30),
     operatorPhone: "9876543210",
     stops: [
       "Hyderabad Boarding (MGBS)",
@@ -55,7 +61,7 @@ const INITIAL_TRIPS: YatraTrip[] = [
     pricePerHead: 999,
     totalSeats: 35,
     availableSeats: 0,
-    departureDate: "2026-08-29",
+    departureDate: demoOffset(29),
     operatorPhone: "9812345678",
     stops: [
       "Vijayawada Pickup",
@@ -71,7 +77,7 @@ const INITIAL_TRIPS: YatraTrip[] = [
     pricePerHead: 1250,
     totalSeats: 45,
     availableSeats: 18,
-    departureDate: "2026-09-05",
+    departureDate: demoOffset(35),
     operatorPhone: "9988776655",
     stops: [
       "Kurnool Junction",
@@ -82,10 +88,11 @@ const INITIAL_TRIPS: YatraTrip[] = [
     ],
     verified: true,
   },
-];
+  ];
+})();
 
 export default function YatraBusPortal() {
-  const [currentSystemDate, setCurrentSystemDate] = useState("2026-08-27");
+  const [currentSystemDate, setCurrentSystemDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [trips, setTrips] = useState<YatraTrip[]>(INITIAL_TRIPS);
   const [showDemo, setShowDemo] = useState(false);
   const [filter, setFilter] = useState<"all" | "available" | "verified">("all");

@@ -230,7 +230,7 @@ export default function DriversClient() {
                   <p className="mx-auto mt-1 max-w-md text-sm text-ink-mute">Drivers go online through the day. Try expanding search or check back soon.</p>
                   <div className="mt-4 flex flex-wrap justify-center gap-2">
                     <button className="btn-primary !py-2" onClick={() => runSearch()}>Retry</button>
-                    <a href="/" className="btn-outline !py-2">Ask AI</a>
+                    <a href="/" className="btn-outline !py-2" onClick={(e) => { e.preventDefault(); window.dispatchEvent(new CustomEvent("nw:ai-ask", { detail: {} })); }}>Ask AI</a>
                   </div>
                 </div>
               </motion.div>

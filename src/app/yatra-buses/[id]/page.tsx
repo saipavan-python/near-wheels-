@@ -32,7 +32,7 @@ export default async function YatraDetails({ params }: { params: { id: string } 
             <div className="mt-1 font-display text-3xl font-extrabold text-ink">₹{pkg.pricePerHead.toLocaleString("en-IN")}</div>
             <div className="mt-5 border-t border-ink/[0.08] pt-5 text-sm text-ink-soft"><CheckCircle2 className="mr-2 inline h-4 w-4 text-emerald-600" />{pkg.operator.verified ? "Verified operator" : "Operator"}</div>
             <div className="mt-3 text-sm text-ink-soft"><MapPin className="mr-2 inline h-4 w-4 text-brand-600" />{pkg.operator.name}</div>
-            <Link href={`/yatra-buses/booking/${pkg.id}`} className="btn-primary mt-6 w-full">Book now</Link>
+            <Link href="/yatra-buses" className="btn-primary mt-6 w-full">Book now</Link>
           </aside>
         </div>
       </div>

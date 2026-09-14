@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ShieldCheck, ArrowRight, Mail, Lock, Eye, EyeOff, User, Building2, ShieldAlert } from "lucide-react";
+import { ShieldCheck, ArrowRight, Mail, Lock, Eye, EyeOff, User, Building2 } from "lucide-react";
 import { api } from "@/lib/ui";
 import GoogleLoginButton from "./GoogleLoginButton";
 
@@ -95,12 +95,7 @@ export default function LoginForm({ onDone }: { onDone?: () => void }) {
     handleSuccess(r.data.user);
   }
 
-  async function fillSuperAdminCredentials() {
-    setIdentifier("9999999999");
-    setPassword("admin123");
-    setMode("password");
-    setStep("form");
-  }
+  
 
   function handleSuccess(user: any) {
     setLoggedInUser(user);
@@ -256,7 +251,7 @@ export default function LoginForm({ onDone }: { onDone?: () => void }) {
           <div>
             <div className="flex items-center justify-between">
               <label className="label mb-0" htmlFor="pw-pass">Password</label>
-              <a href="#" onClick={(e) => e.preventDefault()} className="text-xs font-semibold text-slate-400 hover:text-brand-700">Forgot?</a>
+              <a href="#" onClick={(e) => { e.preventDefault(); setMode("otp"); setStep("form"); setErr(null); }} className="text-xs font-semibold text-slate-400 hover:text-brand-700">Forgot?</a>
             </div>
             <div className="relative">
               <input id="pw-pass" type={showPassword ? "text" : "password"} placeholder="Your password" value={password} onChange={(e) => setPassword(e.target.value)} className="input h-11 pr-10 text-xs" required minLength={8} autoComplete="current-password" />
@@ -305,23 +300,6 @@ export default function LoginForm({ onDone }: { onDone?: () => void }) {
       )}
 
       {err && <p className="rounded-xl bg-red-50 p-3 text-xs font-bold text-red-700">{err}</p>}
-
-      {/* Quick Admin Helper */}
-      <div className="rounded-2xl border border-purple-200 bg-purple-50/60 p-3 text-xs flex items-center justify-between">
-        <div>
-          <p className="font-bold text-purple-950 flex items-center gap-1">
-            <ShieldAlert className="h-3.5 w-3.5 text-purple-700" /> Super Admin Credentials
-          </p>
-          <p className="text-[11px] text-purple-800">Phone: 9999999999 • Pass: admin123</p>
-        </div>
-        <button
-          type="button"
-          onClick={fillSuperAdminCredentials}
-          className="rounded-xl bg-purple-900 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-purple-950"
-        >
-          Auto Fill
-        </button>
-      </div>
 
       <p className="flex items-center justify-center gap-1 text-center text-[11px] font-semibold text-slate-400 pt-1">
         <ShieldCheck className="h-3.5 w-3.5 text-brand-600" />

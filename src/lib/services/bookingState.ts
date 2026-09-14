@@ -3,7 +3,7 @@ import type { Booking } from "@prisma/client";
 
 /** Booking state machine — PENDING → Admin confirms → CONFIRMED */
 const ALLOWED: Record<string, string[]> = {
-  PENDING: ["CONFIRMED", "REJECTED", "CANCELLED", "ADMIN_REVIEW"],
+  PENDING: ["ACCEPTED", "CONFIRMED", "REJECTED", "CANCELLED", "ADMIN_REVIEW"],
   ADMIN_REVIEW: ["CONFIRMED", "REJECTED", "CANCELLED"],
   REQUESTED: ["PENDING", "PENDING_PROVIDER", "ACCEPTED", "REJECTED", "CANCELLED"],
   PENDING_PROVIDER: ["ACCEPTED", "REJECTED", "CANCELLED", "CONFIRMED"],

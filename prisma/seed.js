@@ -57,6 +57,12 @@ async function main() {
      tadipatri: { name: "Tadipatri", type: "TOWN", district: "Anantapur", state: "Telangana", lat: 14.9147, lng: 78.0110, aliases: JSON.stringify(["tadpatri"]), popular: false },
      nandyalStation: { name: "Nandyal Railway Station", type: "STATION", district: "Nandyal", state: "Telangana", lat: 15.4805, lng: 78.4745, aliases: JSON.stringify(["railway station"]), popular: true },
      kurnoolAirport: { name: "Kurnool Airport", type: "AIRPORT", district: "Kurnool", state: "Telangana", lat: 15.9520, lng: 78.1900, aliases: JSON.stringify(["airport"]), popular: false },
+     guntur: { name: "Guntur", type: "CITY", district: "Guntur", state: "Telangana", lat: 16.3067, lng: 80.4365, aliases: JSON.stringify([]), popular: true },
+     vijayawada: { name: "Vijayawada", type: "CITY", district: "Krishna", state: "Telangana", lat: 16.5062, lng: 80.6480, aliases: JSON.stringify(["bezawada"]), popular: true },
+     hyderabad: { name: "Hyderabad", type: "CITY", district: "Hyderabad", state: "Telangana", lat: 17.3850, lng: 78.4867, aliases: JSON.stringify(["hyd"]), popular: true },
+     tirupati: { name: "Tirupati", type: "CITY", district: "Tirupati", state: "Telangana", lat: 13.6288, lng: 79.4192, aliases: JSON.stringify(["tirumala"]), popular: true },
+     bangalore: { name: "Bangalore", type: "CITY", district: "Bengaluru Urban", state: "Telangana", lat: 12.9716, lng: 77.5946, aliases: JSON.stringify(["bengaluru"]), popular: true },
+     kadapa: { name: "Kadapa", type: "CITY", district: "Kadapa", state: "Telangana", lat: 14.4674, lng: 78.8241, aliases: JSON.stringify(["cuddapah"]), popular: true },
   };
   for (const l of Object.values(L)) {
     await prisma.location.create({ data: l });
