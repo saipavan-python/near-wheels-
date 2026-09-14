@@ -8,6 +8,31 @@ export interface ResolvedLocation {
   ambiguous: boolean;
 }
 
+// In-memory TTL cache: the full location table is small and changes rarely
+// (admin-seeded). resolveLocation + searchLocations are hot paths on every
+// search/keyword, so cache the result set briefly instead of a DB round-trip.
+const LOCATION_CACHE_TTL_MS = 60_000;
+const locationCache: { loadedAt: number; promise: Promise<Location[]> | null } = {
+  loadedAt: 0,
+  promise: null,
+};
+
+function getLocations(): Promise<Location[]> {
+  const now = Date.now();
+  if (locationCache.promise && now - locationCache.loadedAt < LOCATION_CACHE_TTL_MS) {
+    return locationCache.promise;
+  }
+  const p = prisma.location.findMany();
+  locationCache.promise = p;
+  locationCache.loadedAt = now;
+  return p;
+}
+
+export function clearLocationCache() {
+  locationCache.promise = null;
+  locationCache.loadedAt = 0;
+}
+
 // Village-friendly landmark phrases: "bus stand pakkana", "hospital opposite", "main road near temple"
 // Also handles Telugu particles: pakkana=near, daggara=near, deggara=near, bayata=outside, lopala=inside, mundu=front, venaka=back
 const LANDMARK_STOPWORDS = new Set([
@@ -61,7 +86,7 @@ export async function resolveLocation(query: string | undefined | null): Promise
   const q = cleanQ ? norm(cleanQ) : norm(rawQ);
   if (!q) return empty;
 
-  const locations = await prisma.location.findMany();
+  const locations = await getLocations();
 
   // strip trailing landmark words e.g. "temple" -> base + landmark
   const parts = q.split(" ");
@@ -130,8 +155,9 @@ export async function searchLocations(term: string, limit = 8) {
   const clean = stripLandmarkWords(term);
   const q = norm(clean || term);
   if (!q) return [];
-  const all = await prisma.location.findMany({ orderBy: [{ popular: "desc" }, { name: "asc" }] });
+  const all = await getLocations();
   return all
     .filter((l) => norm(l.name).includes(q) || JSON.parse(l.aliases || "[]").some((a: string) => norm(a).includes(q)))
+    .sort((a, b) => (b.popular === a.popular ? a.name.localeCompare(b.name) : b.popular ? 1 : -1))
     .slice(0, limit);
 }

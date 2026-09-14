@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { ArrowLeft, Star, BadgeCheck, MapPin, Clock, Wrench, Truck } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { findRuleForTarget, quoteFromRule } from "@/lib/services/pricingService";
@@ -8,6 +9,10 @@ import BookingLauncher from "@/components/detail/BookingLauncher";
 import type { ResultCard } from "@/lib/types";
 
 export const revalidate = 60;
+
+const getGarage = cache((id: string) =>
+  prisma.garageProfile.findUnique({ where: { id }, include: { provider: true } })
+);
 
 const SERVICE_LABELS: Record<string, string> = {
   MECHANIC: "General service",
@@ -21,7 +26,7 @@ const SERVICE_LABELS: Record<string, string> = {
 };
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
-  const g = await prisma.garageProfile.findUnique({ where: { id: params.id }, include: { provider: true } });
+  const g = await getGarage(params.id);
   if (!g) return { title: "Garage not found" };
   return {
     title: `${g.provider.businessName} — Vehicle service & repair`,
@@ -32,7 +37,7 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
 }
 
 export default async function GarageDetail({ params }: { params: { id: string } }) {
-  const prof = await prisma.garageProfile.findUnique({ where: { id: params.id }, include: { provider: true } });
+  const prof = await getGarage(params.id);
   if (!prof || prof.provider.status !== "ACTIVE") notFound();
   const p = prof.provider;
 
@@ -72,6 +77,7 @@ export default async function GarageDetail({ params }: { params: { id: string } 
       <img
         src={garageImage(p.id)}
         alt={p.businessName}
+        fetchPriority="high"
         className="mt-5 h-[280px] w-full rounded-[2rem] object-cover shadow-card md:h-[380px]"
       />
 

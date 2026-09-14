@@ -53,16 +53,19 @@ export async function GET() {
     const todayStart = startOfDay(new Date());
     const todayEnd = endOfDay(new Date());
 
-    const enriched = await Promise.all(drivers.map(async (dr) => {
+    // Batch booking counts for all drivers (was 1 query per driver -> 1 total)
+    const ACTIVE_STATUSES = ["REQUESTED", "PENDING_PROVIDER", "ACCEPTED", "CONFIRMED", "EN_ROUTE", "IN_PROGRESS"];
+    const bookingCounts = await prisma.booking.groupBy({
+      by: ["listingId"],
+      where: { listingKind: "DRIVER", listingId: { in: drivers.map((d) => d.id) }, status: { in: ACTIVE_STATUSES } },
+      _count: { _all: true },
+    });
+    const activeCountById = new Map(bookingCounts.map((r) => [r.listingId, r._count._all]));
+
+    const enriched = drivers.map((dr) => {
       const todayBlock = dr.availabilities.find((a) => new Date(a.startAt) <= todayEnd && new Date(a.endAt) >= todayStart);
       const upcomingBlocks = dr.availabilities.filter((a) => new Date(a.startAt) > todayEnd).slice(0, 3);
-      const activeBookings = await prisma.booking.count({
-        where: {
-          listingKind: "DRIVER",
-          listingId: dr.id,
-          status: { in: ["REQUESTED", "PENDING_PROVIDER", "ACCEPTED", "CONFIRMED", "EN_ROUTE", "IN_PROGRESS"] },
-        },
-      });
+      const activeBookings = activeCountById.get(dr.id) || 0;
       const rule =
         rules.find((r) => r.targetId === dr.id) ||
         rules.find((r) => r.targetType === "DRIVER") ||
@@ -85,7 +88,7 @@ export async function GET() {
             }
           : null,
       };
-    }));
+    });
 
     return ok({ drivers: enriched, providerId: provider.id });
   } catch (e: any) {

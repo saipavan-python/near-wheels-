@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
-import { searchLocations } from "@/lib/services/locationService";
+import { searchLocations, clearLocationCache } from "@/lib/services/locationService";
 
 export const runtime = "nodejs";
 
@@ -37,5 +37,6 @@ export async function POST(req: NextRequest) {
       popular: false,
     },
   });
+  clearLocationCache();
   return ok({ location: loc });
 }

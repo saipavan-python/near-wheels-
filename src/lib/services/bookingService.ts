@@ -310,19 +310,21 @@ export async function modifyBookingSchedule(
   });
 }
 
-export async function bookingsForCustomer(customerId: string) {
+export async function bookingsForCustomer(customerId: string, take?: number) {
   const rows = await prisma.booking.findMany({
     where: { customerId },
     orderBy: { createdAt: "desc" },
+    take: take ?? 200,
     include: { payments: true, review: true },
   });
   return rows.map(publicBookingWithExtras);
 }
 
-export async function bookingsForProvider(providerId: string) {
+export async function bookingsForProvider(providerId: string, take?: number) {
   const rows = await prisma.booking.findMany({
     where: { providerId },
     orderBy: { createdAt: "desc" },
+    take: take ?? 200,
     include: { payments: true, review: true },
   });
   return rows.map(publicBookingWithExtras);

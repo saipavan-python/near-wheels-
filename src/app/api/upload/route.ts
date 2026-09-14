@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
+import sharp from "sharp";
 import { getSession } from "@/lib/session";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/jpg"];
-const ALLOWED_EXTS = ["jpg", "jpeg", "png", "webp"];
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_EDGE = 1600; // longest edge in px after resize
+const WEBP_QUALITY = 82; // visually lossless-to-near-lossless for photos
 
 function isValidImageMagic(buffer: Buffer, mime: string): boolean {
   if (buffer.length < 12) return false;
@@ -69,19 +71,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "File content does not match image type" }, { status: 400 });
     }
 
-    // Sanitize extension from mime, not filename
-    const mimeToExt: Record<string, string> = { "image/jpeg": "jpg", "image/jpg": "jpg", "image/png": "png", "image/webp": "webp" };
-    const ext = mimeToExt[file.type] || "jpg";
-    if (!ALLOWED_EXTS.includes(ext)) {
-      return NextResponse.json({ ok: false, error: "Invalid file extension" }, { status: 400 });
+    // Compress on save: auto-orient, downscale >1600px, encode to WebP (strip EXIF/GPS)
+    const pipeline = sharp(buffer, { failOn: "none" }).rotate();
+    const meta = await pipeline.metadata().catch(() => null);
+    const needsResize = !!meta && Math.max(meta.width || 0, meta.height || 0) > MAX_EDGE;
+    if (needsResize && meta) {
+      pipeline.resize({ width: MAX_EDGE, height: MAX_EDGE, fit: "inside", withoutEnlargement: true });
     }
-    const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    let outBuffer: Buffer | null = null;
+    try {
+      outBuffer = await pipeline.webp({ quality: WEBP_QUALITY, effort: 4 }).toBuffer();
+    } catch {
+      outBuffer = null;
+    }
+    // Fallback to original bytes if encode fails (e.g. pathological input) so uploads never hard-fail.
+    const finalBuffer = outBuffer || buffer;
 
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
+    // Sanitize extension from mime, not filename (re-encoded output is always WebP)
+    const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
+
+    const uploadDir = path.join(process.cwd(), "data", "uploads");
     await mkdir(uploadDir, { recursive: true });
 
     const filePath = path.join(uploadDir, filename);
-    await writeFile(filePath, buffer);
+    await writeFile(filePath, finalBuffer);
 
     const url = `/uploads/${filename}`;
 

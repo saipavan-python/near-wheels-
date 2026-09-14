@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import {
   ArrowLeft, Star, BadgeCheck, MapPin, Users, Gauge, Fuel, Snowflake,
   KeyRound, ShieldCheck, FileText, Building2,
@@ -13,8 +14,12 @@ import { siteUrl } from "@/lib/seo";
 
 export const revalidate = 60;
 
+const getVehicle = cache((id: string) =>
+  prisma.vehicle.findUnique({ where: { id }, include: { provider: true } })
+);
+
 export async function generateMetadata({ params }: { params: { id: string } }) {
-  const v = await prisma.vehicle.findUnique({ where: { id: params.id }, include: { provider: true } });
+  const v = await getVehicle(params.id);
   if (!v) return { title: "Vehicle not found" };
   return {
     title: `${v.title} — Rent in ${v.provider.addressText || v.provider.businessName}`,
@@ -25,7 +30,7 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
 }
 
 export default async function VehicleDetail({ params }: { params: { id: string } }) {
-  const v = await prisma.vehicle.findUnique({ where: { id: params.id }, include: { provider: true } });
+  const v = await getVehicle(params.id);
   if (!v || v.status !== "ACTIVE") notFound();
   const p = v.provider;
 
@@ -76,7 +81,7 @@ export default async function VehicleDetail({ params }: { params: { id: string }
 
       {/* Gallery */}
       <div className="mt-5 grid gap-3 md:grid-cols-[2fr_1fr]">
-        <img src={gallery[0]} alt={v.title} className="h-[300px] w-full rounded-3xl object-cover shadow-card md:h-[460px]" />
+        <img src={gallery[0]} alt={v.title} fetchPriority="high" className="h-[300px] w-full rounded-3xl object-cover shadow-card md:h-[460px]" />
         <div className="grid grid-cols-2 gap-3 md:grid-cols-1">
           {[gallery[1], gallery[2]].map((g, i) => (
             <img key={i} src={g} alt="" loading="lazy" className="hidden h-[calc(460px/2-6px)] w-full rounded-3xl object-cover shadow-card sm:block" />

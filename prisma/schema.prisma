@@ -104,6 +104,7 @@ model Provider {
   @@index([status, availabilityStatus])
   @@index([userId])
   @@index([verificationStatus])
+  @@index([lat, lng])
 }
 
 model ProviderMember {
@@ -440,6 +441,7 @@ model FarmEquipment {
   provider            Provider @relation(fields: [providerId], references: [id])
 
   @@index([equipmentType, status])
+  @@index([providerId])
 }
 
 model DroneProfile {
@@ -516,6 +518,7 @@ model Location {
   popular  Boolean @default(false)
 
   @@index([name])
+  @@index([popular, name])
 }
 
 model Booking {
@@ -568,10 +571,12 @@ model Booking {
 
   @@index([customerId, createdAt])
   @@index([providerId, status])
+  @@index([providerId, createdAt])
   @@index([status])
   @@index([driverId])
   @@index([vehicleId])
   @@index([paymentStatus])
+  @@index([listingKind, listingId, status, scheduledFor])
 }
 
 model BookingChatMessage {
@@ -859,6 +864,7 @@ model SharedRide {
 
   @@index([fromLocation, toLocation])
   @@index([status])
+  @@index([status, createdAt])
 }
 
 model SharedRideBooking {

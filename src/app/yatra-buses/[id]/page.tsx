@@ -1,15 +1,21 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { Bus, CalendarDays, CheckCircle2, MapPin, Users } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { packageInclude, publicPackage } from "@/lib/services/yatraService";
 
 export const revalidate = 60;
 
+const getYatraPackage = cache((id: string) =>
+  prisma.yatraBusPackage.findFirst({
+    where: { id, status: "PUBLISHED", isPublished: true, isActive: true },
+    include: packageInclude,
+  })
+);
+
 export async function generateMetadata({ params }: { params: { id: string } }) {
-  const found = await prisma.yatraBusPackage.findFirst({
-    where: { id: params.id, status: "PUBLISHED", isPublished: true, isActive: true },
-  });
+  const found = await getYatraPackage(params.id);
   if (!found) return { title: "Yatra bus not found" };
   return {
     title: `${found.packageName} — Yatra Bus | Near Wheels`,
@@ -19,7 +25,7 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
 }
 
 export default async function YatraDetails({ params }: { params: { id: string } }) {
-  const found = await prisma.yatraBusPackage.findFirst({ where: { id: params.id, status: "PUBLISHED", isPublished: true, isActive: true }, include: packageInclude });
+  const found = await getYatraPackage(params.id);
   if (!found || found.departureDate < new Date()) notFound();
   const pkg = publicPackage(found);
   return (

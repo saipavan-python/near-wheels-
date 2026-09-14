@@ -31,25 +31,32 @@ export async function GET() {
     const todayStart = startOfDay(new Date());
     const todayEnd = endOfDay(new Date());
 
-    const enriched = await Promise.all(vehicles.map(async (v) => {
+    // Batch booking counts for all vehicles (was 2 queries per vehicle -> 2 total)
+    const ACTIVE_STATUSES = ["REQUESTED", "PENDING_PROVIDER", "ACCEPTED", "CONFIRMED", "EN_ROUTE", "IN_PROGRESS"];
+    const ids = vehicles.map((v) => v.id);
+    const bookingCounts = await prisma.booking.groupBy({
+      by: ["listingId"],
+      where: { listingKind: "VEHICLE", listingId: { in: ids }, status: { in: ACTIVE_STATUSES } },
+      _count: { _all: true },
+    });
+    const activeCountById = new Map(bookingCounts.map((r) => [r.listingId, r._count._all]));
+    const todayCounts = await prisma.booking.groupBy({
+      by: ["listingId"],
+      where: {
+        listingKind: "VEHICLE",
+        listingId: { in: ids },
+        status: { in: ACTIVE_STATUSES },
+        scheduledFor: { gte: todayStart, lte: todayEnd },
+      },
+      _count: { _all: true },
+    });
+    const todayCountById = new Map(todayCounts.map((r) => [r.listingId, r._count._all]));
+
+    const enriched = vehicles.map((v) => {
       const todayBlock = v.availabilities.find((a) => new Date(a.startDate) <= todayEnd && new Date(a.endDate) >= todayStart);
       const upcomingBlocks = v.availabilities.filter((a) => new Date(a.startDate) > todayEnd).slice(0, 3);
-      // bookings for stats
-      const activeBookings = await prisma.booking.count({
-        where: {
-          listingKind: "VEHICLE",
-          listingId: v.id,
-          status: { in: ["REQUESTED", "PENDING_PROVIDER", "ACCEPTED", "CONFIRMED", "EN_ROUTE", "IN_PROGRESS"] },
-        },
-      });
-      const todayBookings = await prisma.booking.count({
-        where: {
-          listingKind: "VEHICLE",
-          listingId: v.id,
-          status: { in: ["REQUESTED", "PENDING_PROVIDER", "ACCEPTED", "CONFIRMED", "EN_ROUTE", "IN_PROGRESS"] },
-          scheduledFor: { gte: todayStart, lte: todayEnd },
-        },
-      });
+      const activeBookings = activeCountById.get(v.id) || 0;
+      const todayBookings = todayCountById.get(v.id) || 0;
       const rule = rules.find((r) => r.targetId === v.id) || rules.find((r) => r.targetType === "VEHICLE") || null;
       return {
         ...v,
@@ -68,7 +75,7 @@ export async function GET() {
         } : null,
         availableAgain: todayBlock ? (() => { const d = new Date(todayBlock.endDate); d.setDate(d.getDate()+1); return d.toISOString(); })() : null,
       };
-    }));
+    });
 
     return ok({ vehicles: enriched, providerId: provider.id });
   } catch (e: any) {

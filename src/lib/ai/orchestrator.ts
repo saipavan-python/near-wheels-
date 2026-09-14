@@ -451,8 +451,22 @@ async function executeTool(
         const model = args.vehicle_model ? String(args.vehicle_model) : undefined;
         const withDriver = !!args.with_driver;
 
-        // Find real vehicle candidates near origin
-        const allVehicles = await prisma.vehicle.findMany({ where: { status: "ACTIVE" }, include: { provider: true } });
+        // Find real vehicle candidates near origin (geo bounding box in SQL instead of full-table scan)
+        const RADIUS_KM = 60;
+        const latDelta = RADIUS_KM / 111;
+        const lngDelta = RADIUS_KM / (111 * Math.max(0.2, Math.cos((rFrom.resolved.lat * Math.PI) / 180)));
+        const allVehicles = await prisma.vehicle.findMany({
+          where: {
+            status: "ACTIVE",
+            provider: {
+              status: "ACTIVE",
+              lat: { gte: rFrom.resolved.lat - latDelta, lte: rFrom.resolved.lat + latDelta },
+              lng: { gte: rFrom.resolved.lng - lngDelta, lte: rFrom.resolved.lng + lngDelta },
+            },
+          },
+          include: { provider: true },
+          take: 100,
+        });
         const candidates = allVehicles
           .filter((v) => {
             if (v.provider.status !== "ACTIVE") return false;

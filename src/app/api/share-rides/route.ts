@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
     where,
     include: { bookings: true },
     orderBy: { createdAt: "desc" },
+    take: 50,
   });
 
   return ok({ rides });

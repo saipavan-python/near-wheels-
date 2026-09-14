@@ -16,3 +16,4 @@ coverage
 *.log
 !.gitkeep
 tsconfig.tsbuildinfo
+data/uploads/

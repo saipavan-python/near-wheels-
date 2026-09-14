@@ -40,19 +40,18 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Update school rating
-    const reviews = await prisma.drivingReview.findMany({
+    // Update school rating (single aggregate — was a full review scan per insert)
+    const agg = await prisma.drivingReview.aggregate({
       where: { schoolId: body.schoolId },
-      select: { rating: true },
+      _avg: { rating: true },
+      _count: { _all: true },
     });
-
-    const avgRating = reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0;
 
     await prisma.drivingSchool.update({
       where: { id: body.schoolId },
       data: {
-        ratingAvg: Math.round(avgRating * 10) / 10,
-        ratingCount: reviews.length,
+        ratingAvg: agg._count._all > 0 ? Math.round((agg._avg.rating || 0) * 10) / 10 : 0,
+        ratingCount: agg._count._all,
       },
     });
 

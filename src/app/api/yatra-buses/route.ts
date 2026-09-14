@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
     },
     include: packageInclude,
     orderBy: { departureDate: "asc" },
+    take: 50,
   });
 
   return ok({ packages: packages.map(publicPackage) });
