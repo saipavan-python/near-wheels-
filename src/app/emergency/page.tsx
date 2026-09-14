@@ -90,10 +90,14 @@ export default function EmergencyClient() {
 
         setGettingLocation(false);
       })
-      .catch(() => {
+      .catch((e: any) => {
         if (!active) return;
 
         setGettingLocation(false);
+        setError(
+          e?.message ||
+            "Unable to detect your location. Please allow location access or choose a location manually."
+        );
       });
 
     return () => {
@@ -121,7 +125,7 @@ export default function EmergencyClient() {
       typeof loc.lng !== "number"
     ) {
       setError(
-        "Turn on location or pick where you are â€” we need your location to find the fastest help."
+        "Turn on location or pick where you are — we need your location to find the fastest help."
       );
 
       return;

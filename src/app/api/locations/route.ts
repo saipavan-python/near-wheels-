@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
+import { getSession } from "@/lib/session";
 import { searchLocations, clearLocationCache } from "@/lib/services/locationService";
 
 export const runtime = "nodejs";
@@ -22,6 +23,8 @@ export async function GET(req: NextRequest) {
 
 /** Admin gazetteer additions (kept minimal). */
 export async function POST(req: NextRequest) {
+  const session = getSession();
+  if (!session || session.role !== "ADMIN") return fail("Admin login required", 403);
   const b = await req.json().catch(() => ({}));
   if (!b.name || typeof b.lat !== "number" || typeof b.lng !== "number")
     return fail("name, lat, lng required");

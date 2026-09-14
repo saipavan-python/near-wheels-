@@ -99,7 +99,15 @@ export function getCurrentPosition(): Promise<{ lat: number; lng: number }> {
       return reject(new Error("Location not supported on this device"));
     navigator.geolocation.getCurrentPosition(
       (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
-      () => reject(new Error("Location permission was denied")),
+      (err) => {
+        if (err && err.code === err.PERMISSION_DENIED) {
+          reject(new Error("Location access is blocked. Please enable location permission in your browser settings, or search a location manually."));
+        } else if (err && err.code === err.TIMEOUT) {
+          reject(new Error("We couldn't detect your location in time. Please try again or search a location manually."));
+        } else {
+          reject(new Error("Unable to detect your location right now. Please try again or search a location manually."));
+        }
+      },
       { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 }
     );
   });

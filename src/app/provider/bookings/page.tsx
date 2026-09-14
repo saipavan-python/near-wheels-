@@ -22,10 +22,10 @@ export default function ProviderBookingsPage() {
     loadBookings();
   }, []);
 
-  async function handleStatusChange(bookingId: string, nextStatus: string) {
+  async function handleStatusChange(bookingId: string, action: "accept" | "reject") {
     setBusyId(bookingId);
     const r = await api<{ message: string }>("/api/providers/actions", {
-      json: { action: "MOVE_BOOKING_STATUS", bookingId, status: nextStatus },
+      json: { action, bookingId },
     });
     setBusyId(null);
     if (r.ok) loadBookings();
@@ -142,14 +142,14 @@ export default function ProviderBookingsPage() {
                   <div className="flex items-center justify-end gap-3 pt-2">
                     <button
                       disabled={busyId === b.id}
-                      onClick={() => handleStatusChange(b.id, "CANCELLED")}
+                      onClick={() => handleStatusChange(b.id, "reject")}
                       className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100"
                     >
                       Decline Order
                     </button>
                     <button
                       disabled={busyId === b.id}
-                      onClick={() => handleStatusChange(b.id, "ACCEPTED")}
+                      onClick={() => handleStatusChange(b.id, "accept")}
                       className="btn-primary !py-2 !px-5 text-xs font-bold shadow-md"
                     >
                       Accept Booking

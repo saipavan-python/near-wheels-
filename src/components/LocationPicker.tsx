@@ -29,6 +29,7 @@ export default function LocationPicker({
   const [recents, setRecents] = useState(readRecentLocations());
   const [open, setOpen] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [gpsError, setGpsError] = useState("");
   const boxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -50,6 +51,7 @@ export default function LocationPicker({
 
   async function useGps() {
     setLocating(true);
+    setGpsError("");
     try {
       const { lat, lng } = await getCurrentPosition();
       const label = "Current location";
@@ -58,7 +60,7 @@ export default function LocationPicker({
       setOpen(false);
       onPick({ label, lat, lng });
     } catch (e: any) {
-      alert(e.message || "Could not get your location");
+      setGpsError(e?.message || "Could not get your location");
     }
     setLocating(false);
   }
@@ -126,6 +128,11 @@ export default function LocationPicker({
             {q && options.length === 0 && (
               <p className="px-3 py-3 text-sm text-slate-500">
                 No match for “{q}”. Try a nearby town, or use your current location.
+              </p>
+            )}
+            {gpsError && (
+              <p role="alert" className="mx-2 mb-2 rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+                {gpsError}
               </p>
             )}
           </div>
