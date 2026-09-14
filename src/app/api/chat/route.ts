@@ -3,6 +3,7 @@ import { handleChatMessage } from "@/lib/ai/orchestrator";
 import { getSession } from "@/lib/session";
 import { ok, fail } from "@/lib/http";
 import { prisma } from "@/lib/db";
+import { randomUUID } from "crypto";
 
 export const runtime = "nodejs";
 
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
     // stable anonymous device key so guests keep conversation context too
     const sessionKey =
       req.cookies.get("nw_device")?.value ||
-      `anon-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+      `anon-${randomUUID()}`;
 
     const result = await handleChatMessage({
       message,
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
     });
     if (!req.cookies.get("nw_device")) {
       res.cookies.set("nw_device", sessionKey, {
-        httpOnly: false,
+        httpOnly: true,
         sameSite: "lax",
         maxAge: 60 * 60 * 24 * 365,
         path: "/",
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
     }
     return res;
   } catch (e: any) {
-    console.error("chat error", e);
+    console.error("chat error:", e?.message || "unknown");
     return fail("The assistant hit an unexpected problem. Please try again.", 500);
   }
 }

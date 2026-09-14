@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
 
     return ok({ received: true });
   } catch (e: any) {
-    console.error("Webhook error:", e);
+    console.error("Webhook error");
     return fail("Webhook processing failed", 400);
   }
 }

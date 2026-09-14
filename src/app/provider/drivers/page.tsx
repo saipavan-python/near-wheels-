@@ -199,7 +199,7 @@ export default function DriversPage() {
             </div>
             <div>
               <label className="label">Phone</label>
-              <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="98XXXXXXXX" />
+              <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="10-digit mobile number" />
             </div>
             <div>
               <label className="label">Experience (years)</label>

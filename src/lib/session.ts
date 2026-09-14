@@ -17,7 +17,7 @@ function secret(): string {
     if (process.env.NODE_ENV === "production") {
       throw new Error("SESSION_SECRET must be set to a strong random value in production");
     }
-    return "dev-only-secret-change-me-not-for-production-use-32chars!";
+    return "dev-only-secret-change-me-not-for-production-use-32chars-v2";
   }
   return s;
 }

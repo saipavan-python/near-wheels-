@@ -4,10 +4,15 @@ import { prisma } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
 import { createSessionToken } from "@/lib/session";
 import { audit } from "@/lib/services/auditService";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
+  const ip = getClientIp(req);
+  const rl = checkRateLimit(`admin-login:ip:${ip}`, 10, 60_000);
+  if (!rl.allowed) return fail("Too many login attempts. Try again shortly.", 429);
+
   const b = await req.json().catch(() => ({}));
   const phone = String(b.phone || "").replace(/\D/g, "");
   const password = String(b.password || "");

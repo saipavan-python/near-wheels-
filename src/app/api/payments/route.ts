@@ -72,7 +72,7 @@ export async function PUT(req: NextRequest) {
       const isValid = Razorpay.validateWebhookSignature(body, signature, webhookSecret);
       if (!isValid) return fail("Invalid Razorpay signature", 403);
     } catch (e) {
-      console.error("Webhook signature verification failed:", e);
+      console.error("Webhook signature verification failed");
       return fail("Invalid signature", 403);
     }
   }
@@ -92,7 +92,7 @@ export async function PUT(req: NextRequest) {
     if (result.status === "SUCCESS") return ok({ status: "SUCCESS", bookingCode: result.bookingCode });
     return ok({ status: "FAILED", message: "Payment could not be completed. You can try again." });
   } catch (e: any) {
-    console.error("verify error", e);
+    console.error("verify error");
     return fail("Verification failed", 400);
   }
 }
