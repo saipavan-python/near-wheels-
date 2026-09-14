@@ -1,13 +1,22 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { ok } from "@/lib/http";
+import { ok, fail } from "@/lib/http";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+function seedAuthorized(req: NextRequest, count: number): boolean {
+  if (process.env.NODE_ENV === "production") {
+    const token = req.nextUrl.searchParams.get("token") || req.headers.get("x-seed-token") || "";
+    const expected = process.env.SEED_SHARE_RIDES_TOKEN;
+    return !!expected && token === expected && count === 0;
+  }
+  return count === 0;
+}
+
+export async function GET(req: NextRequest) {
   const count = await prisma.sharedRide.count();
-  if (count > 0) {
-    return ok({ message: "Seed already exists", count });
+  if (!seedAuthorized(req, count)) {
+    return fail(count > 0 ? "Seed already exists" : "Unauthorized", count > 0 ? 409 : 403);
   }
 
   const sampleRides = [
@@ -19,7 +28,7 @@ export async function GET() {
       verified: true,
       fromLocation: "Guntur",
       toLocation: "Bangalore",
-      travelDate: "2026-08-30",
+      travelDate: "2026-09-20",
       departureTime: "06:30 PM",
       vehicleTitle: "Maruti Suzuki Ertiga",
       vehicleCategory: "CAR",
@@ -45,7 +54,7 @@ export async function GET() {
       verified: true,
       fromLocation: "Guntur",
       toLocation: "Bangalore",
-      travelDate: "2026-08-30",
+      travelDate: "2026-09-20",
       departureTime: "07:15 PM",
       vehicleTitle: "Kia Carens",
       vehicleCategory: "SUV",
@@ -71,7 +80,7 @@ export async function GET() {
       verified: true,
       fromLocation: "Hyderabad",
       toLocation: "Tirupati",
-      travelDate: "2026-08-31",
+      travelDate: "2026-09-21",
       departureTime: "09:00 PM",
       vehicleTitle: "Toyota Innova Crysta",
       vehicleCategory: "SUV",
