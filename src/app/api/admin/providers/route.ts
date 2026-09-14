@@ -1,14 +1,21 @@
 import { NextRequest } from "next/server";
-import { getSession } from "@/lib/session";
-import { ok, fail } from "@/lib/http";
 import { prisma } from "@/lib/db";
+import { ok, fail } from "@/lib/http";
 import { audit } from "@/lib/services/auditService";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
 function requireAdmin() {
   const s = getSession();
   return s && s.role === "ADMIN" ? s : null;
+}
+
+function requireAdminRateLimit(req: NextRequest): boolean {
+  const ip = getClientIp(req);
+  const rl = checkRateLimit(`admin-action:${ip}`, 20, 60_000);
+  if (!rl.allowed) return false;
+  return true;
 }
 
 export async function GET(req: NextRequest) {
@@ -30,6 +37,7 @@ const ACTIONS = ["approve", "reject", "suspend", "activate", "verify", "set_offl
 export async function PATCH(req: NextRequest) {
   const session = requireAdmin();
   if (!session) return fail("Admin only", 403);
+  if (!requireAdminRateLimit(req)) return fail("Too many admin actions. Try again.", 429);
   const b = await req.json().catch(() => ({}));
   const action = String(b.action || "");
   const id = String(b.providerId || "");
@@ -60,6 +68,7 @@ export async function PATCH(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const admin = requireAdmin();
   if (!admin) return fail("Admin only", 403);
+  if (!requireAdminRateLimit(req)) return fail("Too many admin actions. Try again.", 429);
   const b = await req.json().catch(() => ({}));
   const ids = b.ids || [];
   if (!Array.isArray(ids) || ids.length === 0) return fail("ids array required", 400);
