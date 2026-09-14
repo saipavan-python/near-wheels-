@@ -12,7 +12,7 @@ const MIME: Record<string, string> = {
   ".gif": "image/gif",
 };
 
-const uploadsDir = path.join(process.cwd(), "data", "uploads");
+const uploadsDir = process.env.UPLOAD_DIR || path.join(process.cwd(), "data", "uploads");
 
 /**
  * GET /uploads/[file]

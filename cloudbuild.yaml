@@ -1,0 +1,53 @@
+# Near Wheels — Google Cloud Build pipeline
+# Builds the Docker image and deploys it to Cloud Run.
+#
+# Edit the two <REPLACE> values below (they are also passed by gcloud builds submit
+# via --substitutions, so you don't need to edit this file if you use deploy.sh).
+
+steps:
+  # 1. Build the image and push to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_RAZORPAY_KEY_ID=${_NEXT_PUBLIC_RAZORPAY_KEY_ID}'
+      - '--build-arg'
+      - 'NEXT_PUBLIC_SITE_URL=${_NEXT_PUBLIC_SITE_URL}'
+      - '-t'
+      - '$_REGION-docker.pkg.dev/$PROJECT_ID/near-wheels/near-wheels:${_TAG}'
+      - '.'
+    timeout: '1200s'
+
+  # 2. Deploy to Cloud Run (zero-downtime, requests-per-second autoscaling)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gcloud run deploy near-wheels \
+          --image="$_REGION-docker.pkg.dev/$$PROJECT_ID/near-wheels/near-wheels:$${_TAG}" \
+          --region="$_REGION" \
+          --platform=managed \
+          --allow-unauthenticated \
+          --cpu=1 \
+          --memory=512Mi \
+          --min-instances=0 \
+          --max-instances=10 \
+          --port=8080 \
+          --service-account="$_SERVICE_ACCOUNT" \
+          --set-env-vars="DATABASE_URL=$${_DATABASE_URL},SESSION_SECRET=$${_SESSION_SECRET},ADMIN_PHONE=$${_ADMIN_PHONE},ADMIN_PASSWORD=$${_ADMIN_PASSWORD},DEMO_CUSTOMER_PHONE=$${_DEMO_CUSTOMER_PHONE},GEMINI_API_KEY=$${_GEMINI_API_KEY},GEMINI_MODEL=$${_GEMINI_MODEL},PAYMENT_MODE=$${_PAYMENT_MODE}" \
+          --set-secrets="RAZORPAY_KEY_ID=$${_RAZORPAY_KEY_ID_SECRET}:latest,RAZORPAY_KEY_SECRET=$${_RAZORPAY_KEY_SECRET_SECRET}:latest,RAZORPAY_WEBHOOK_SECRET=$${_RAZORPAY_WEBHOOK_SECRET_SECRET}:latest,PAYMENT_WEBHOOK_SECRET=$${_PAYMENT_WEBHOOK_SECRET_SECRET}:latest"
+
+images:
+  - '$_REGION-docker.pkg.dev/$PROJECT_ID/near-wheels/near-wheels:${_TAG}'
+
+substitutions:
+  _REGION: us-central1
+  _TAG: latest
+  _NEXT_PUBLIC_RAZORPAY_KEY_ID: ''
+  _NEXT_PUBLIC_SITE_URL: https://nearwheels.example.com
+  _SERVICE_ACCOUNT: ''
+
+options:
+  dynamic_substitutions: true
+  logging: CLOUD_LOGGING_ONLY

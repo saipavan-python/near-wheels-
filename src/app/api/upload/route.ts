@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
     // Sanitize extension from mime, not filename (re-encoded output is always WebP)
     const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
 
-    const uploadDir = path.join(process.cwd(), "data", "uploads");
+    const uploadDir = process.env.UPLOAD_DIR || path.join(process.cwd(), "data", "uploads");
     await mkdir(uploadDir, { recursive: true });
 
     const filePath = path.join(uploadDir, filename);
