@@ -95,7 +95,7 @@ export const DEFAULT_SETTINGS: PlatformSettings = {
     CNG: 78.0,
     ELECTRIC: 8.5,
     updatedAt: new Date().toISOString(),
-    region: "Andhra Pradesh (estimate)",
+    region: "Telangana (estimate)",
   },
   mileageKmPerLitre: {
     CAR: 15,

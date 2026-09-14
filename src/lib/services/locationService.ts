@@ -63,7 +63,7 @@ export async function resolveLocation(query: string | undefined | null): Promise
 
   const locations = await prisma.location.findMany();
 
-  // strip trailing landmark words e.g. "yerragunta temple" -> base + landmark
+  // strip trailing landmark words e.g. "temple" -> base + landmark
   const parts = q.split(" ");
   const rawHints = landmarkTokens(rawQ);
 
@@ -80,7 +80,7 @@ export async function resolveLocation(query: string | undefined | null): Promise
     test(q);
     // also test stripped phrase without landmark words
     if (cleanQ && cleanQ !== q) test(norm(cleanQ));
-    // progressive n-grams so "yerragunta temple" matches the village + TEMPLE type
+    // progressive n-grams so "temple" matches the village + TEMPLE type
     for (let take = parts.length; take >= 1; take--) {
       test(parts.slice(0, take).join(" "));
     }

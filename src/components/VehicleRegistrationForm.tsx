@@ -167,7 +167,7 @@ export default function VehicleRegistrationForm({ mode = "create", initial, vehi
           </div>
           <div>
             <label className="label">Registration number</label>
-            <input className="input h-12" value={registrationNumber} onChange={(e) => setRegistrationNumber(e.target.value.toUpperCase())} placeholder="AP 39 AB 1234" />
+            <input className="input h-12" value={registrationNumber} onChange={(e) => setRegistrationNumber(e.target.value.toUpperCase())} placeholder="Enter registration number" />
           </div>
           <div>
             <label className="label">Color</label>

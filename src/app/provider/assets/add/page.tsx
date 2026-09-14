@@ -151,7 +151,7 @@ export default function AddAssetPage() {
               </div>
               <div>
                 <label className="label">Registration Number</label>
-                <input className="input h-11 uppercase font-mono" placeholder="AP 21 AB 1234" value={regNumber} onChange={(e) => setRegNumber(e.target.value)} />
+                <input className="input h-11 uppercase font-mono" placeholder="Enter registration number" value={regNumber} onChange={(e) => setRegNumber(e.target.value)} />
               </div>
             </div>
           )}

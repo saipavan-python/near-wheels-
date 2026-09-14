@@ -34,7 +34,7 @@ export default function ProviderOnboardingPage() {
   const [phone, setPhone] = useState("");
   const [ownerName, setOwnerName] = useState("");
   const [addressText, setAddressText] = useState("");
-  const [locationText, setLocationText] = useState("Nandyal, AP");
+  const [locationText, setLocationText] = useState("Nandyal");
 
   // Type specific states
   const [carDetails, setCarDetails] = useState({ make: "Maruti", model: "Ertiga", seats: "7", fuelType: "PETROL", transmission: "MANUAL", ac: true, dailyRate: "2000", registrationNumber: "" });
@@ -241,7 +241,7 @@ export default function ProviderOnboardingPage() {
                       <input
                         required
                         className="input h-11 pl-9"
-                        placeholder="e.g. Nandyal, AP"
+                        placeholder="e.g. Nandyal"
                         value={locationText}
                         onChange={(e) => setLocationText(e.target.value)}
                       />

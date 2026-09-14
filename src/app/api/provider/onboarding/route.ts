@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
   if (lat == null || lng == null) {
     lat = 15.4771;
     lng = 78.4807;
-    addressText = addressText || "Nandyal, Andhra Pradesh";
+    addressText = addressText || "Nandyal";
   }
 
   // Create Provider Organization
@@ -292,9 +292,9 @@ export async function POST(req: NextRequest) {
         phone,
         email: b.email || null,
         description: ds.description || "Professional driving school with certified instructors.",
-        address: addressText || "Nandyal, Andhra Pradesh",
+        address: addressText || "Nandyal",
         city: "Nandyal",
-        state: "Andhra Pradesh",
+        state: "Telangana",
         lat,
         lng,
         status: "VERIFIED",

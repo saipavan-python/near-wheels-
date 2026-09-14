@@ -44,22 +44,19 @@ async function main() {
 
   // ── Gazetteer ─────────────────────────────────────────────────────
   const L = {
-    yerraguntaA: { name: "Yerragunta", type: "VILLAGE", district: "Nandyal", state: "Andhra Pradesh", lat: 15.4789, lng: 78.5213, aliases: JSON.stringify(["yerraguntapalli", "erragunta"]), popular: true },
-    yerraguntaB: { name: "Yerragunta", type: "VILLAGE", district: "Kurnool", state: "Andhra Pradesh", lat: 15.8412, lng: 77.9921, aliases: JSON.stringify(["erragunta kurnool"]), popular: false },
-    yerraguntaTemple: { name: "Yerragunta Temple", type: "TEMPLE", district: "Nandyal", state: "Andhra Pradesh", lat: 15.4835, lng: 78.5266, aliases: JSON.stringify(["yerragunta gudi"]), popular: true },
-    nandyal: { name: "Nandyal", type: "TOWN", district: "Nandyal", state: "Andhra Pradesh", lat: 15.4771, lng: 78.4807, aliases: JSON.stringify(["nandhyal"]), popular: true },
-    kurnool: { name: "Kurnool", type: "CITY", district: "Kurnool", state: "Andhra Pradesh", lat: 15.8281, lng: 78.0373, aliases: JSON.stringify([]), popular: true },
-    atmakur: { name: "Atmakur", type: "TOWN", district: "Nandyal", state: "Andhra Pradesh", lat: 15.7521, lng: 78.5612, aliases: JSON.stringify(["atmakur nandyal"]), popular: false },
-    srisailam: { name: "Srisailam", type: "RESORT_AREA", district: "Nandyal", state: "Andhra Pradesh", lat: 16.0747, lng: 78.8696, aliases: JSON.stringify(["srisailam temple", "mallikarjuna"]), popular: true },
-    forestGate: { name: "Nallamala Forest Gate", type: "FOREST", district: "Nandyal", state: "Andhra Pradesh", lat: 15.9388, lng: 78.6822, aliases: JSON.stringify(["forest gate", "adavi gate"]), popular: true },
-    banaganapalle: { name: "Banaganapalle", type: "TOWN", district: "Nandyal", state: "Andhra Pradesh", lat: 15.2830, lng: 78.3170, aliases: JSON.stringify(["banaganpalli"]), popular: false },
-    dhone: { name: "Dhone", type: "TOWN", district: "Nandyal", state: "Andhra Pradesh", lat: 15.3960, lng: 77.8720, aliases: JSON.stringify(["dronachalam"]), popular: false },
-    allagadda: { name: "Allagadda", type: "TOWN", district: "Nandyal", state: "Andhra Pradesh", lat: 15.1330, lng: 78.5170, aliases: JSON.stringify([]), popular: false },
-    koilkuntla: { name: "Koilkuntla", type: "TOWN", district: "Nandyal", state: "Andhra Pradesh", lat: 15.1830, lng: 78.3170, aliases: JSON.stringify([]), popular: false },
-    nh40point: { name: "NH-40 Nandyal Bypass", type: "HIGHWAY", district: "Nandyal", state: "Andhra Pradesh", lat: 15.5020, lng: 78.4430, aliases: JSON.stringify(["nh40", "highway 40", "nh 40"]), popular: true },
-    tadipatri: { name: "Tadipatri", type: "TOWN", district: "Anantapur", state: "Andhra Pradesh", lat: 14.9147, lng: 78.0110, aliases: JSON.stringify(["tadpatri"]), popular: false },
-    nandyalStation: { name: "Nandyal Railway Station", type: "STATION", district: "Nandyal", state: "Andhra Pradesh", lat: 15.4805, lng: 78.4745, aliases: JSON.stringify(["railway station"]), popular: true },
-    kurnoolAirport: { name: "Kurnool Airport", type: "AIRPORT", district: "Kurnool", state: "Andhra Pradesh", lat: 15.9520, lng: 78.1900, aliases: JSON.stringify(["airport"]), popular: false },
+     nandyal: { name: "Nandyal", type: "TOWN", district: "Nandyal", state: "Telangana", lat: 15.4771, lng: 78.4807, aliases: JSON.stringify(["nandhyal"]), popular: true },
+     kurnool: { name: "Kurnool", type: "CITY", district: "Kurnool", state: "Telangana", lat: 15.8281, lng: 78.0373, aliases: JSON.stringify([]), popular: true },
+     atmakur: { name: "Atmakur", type: "TOWN", district: "Nandyal", state: "Telangana", lat: 15.7521, lng: 78.5612, aliases: JSON.stringify(["atmakur nandyal"]), popular: false },
+     srisailam: { name: "Srisailam", type: "RESORT_AREA", district: "Nandyal", state: "Telangana", lat: 16.0747, lng: 78.8696, aliases: JSON.stringify(["srisailam temple", "mallikarjuna"]), popular: true },
+     forestGate: { name: "Nallamala Forest Gate", type: "FOREST", district: "Nandyal", state: "Telangana", lat: 15.9388, lng: 78.6822, aliases: JSON.stringify(["forest gate", "adavi gate"]), popular: true },
+     banaganapalle: { name: "Banaganapalle", type: "TOWN", district: "Nandyal", state: "Telangana", lat: 15.2830, lng: 78.3170, aliases: JSON.stringify(["banaganpalli"]), popular: false },
+     dhone: { name: "Dhone", type: "TOWN", district: "Nandyal", state: "Telangana", lat: 15.3960, lng: 77.8720, aliases: JSON.stringify(["dronachalam"]), popular: false },
+     allagadda: { name: "Allagadda", type: "TOWN", district: "Nandyal", state: "Telangana", lat: 15.1330, lng: 78.5170, aliases: JSON.stringify([]), popular: false },
+     koilkuntla: { name: "Koilkuntla", type: "TOWN", district: "Nandyal", state: "Telangana", lat: 15.1830, lng: 78.3170, aliases: JSON.stringify([]), popular: false },
+     nh40point: { name: "NH-40 Nandyal Bypass", type: "HIGHWAY", district: "Nandyal", state: "Telangana", lat: 15.5020, lng: 78.4430, aliases: JSON.stringify(["nh40", "highway 40", "nh 40"]), popular: true },
+     tadipatri: { name: "Tadipatri", type: "TOWN", district: "Anantapur", state: "Telangana", lat: 14.9147, lng: 78.0110, aliases: JSON.stringify(["tadpatri"]), popular: false },
+     nandyalStation: { name: "Nandyal Railway Station", type: "STATION", district: "Nandyal", state: "Telangana", lat: 15.4805, lng: 78.4745, aliases: JSON.stringify(["railway station"]), popular: true },
+     kurnoolAirport: { name: "Kurnool Airport", type: "AIRPORT", district: "Kurnool", state: "Telangana", lat: 15.9520, lng: 78.1900, aliases: JSON.stringify(["airport"]), popular: false },
   };
   for (const l of Object.values(L)) {
     await prisma.location.create({ data: l });
@@ -147,7 +144,7 @@ async function main() {
 
   const reddyRentals = await provider({
     type: "VEHICLE_OWNER", name: "Reddy Car Rentals", phone: "9700100102",
-    lat: L.yerraguntaB.lat, lng: L.yerraguntaB.lng, address: "Yerragunda (Kurnool dist.)",
+     lat: L.nandyal.lat - 0.01, lng: L.nandyal.lng + 0.02, address: "Kurnool road, Nandyal",
     radius: 30, rating: 4.6, jobs: 31,
   });
   const carens = await prisma.vehicle.create({
@@ -161,7 +158,7 @@ async function main() {
 
   const balajiAutos = await provider({
     type: "VEHICLE_OWNER", name: "Balaji Autos", phone: "9700100103",
-    lat: L.yerraguntaA.lat - 0.002, lng: L.yerraguntaA.lng + 0.001, address: "Yerragunta village bus stop",
+     lat: L.nandyal.lat - 0.002, lng: L.nandyal.lng + 0.001, address: "Nandyal bus stop",
     radius: 10, rating: 4.7, jobs: 88, responseSec: 30,
   });
   const auto1 = await prisma.vehicle.create({
@@ -225,7 +222,7 @@ async function main() {
   await rule(kurnoolVans.id, "VEHICLE", pickup.id, "PICKUP", "PER_TRIP", { perTrip: 1800, perKm: 18, minCharge: 800 });
 
   const apRoadlines = await provider({
-    type: "VEHICLE_OWNER", name: "AP Roadlines", phone: "9700100108",
+     type: "VEHICLE_OWNER", name: "National Roadlines", phone: "9700100108",
     lat: L.nh40point.lat, lng: L.nh40point.lng, address: "NH-40 bypass point",
     radius: 60, rating: 4.1, jobs: 33, availability: "OFFLINE",
   });
@@ -240,7 +237,7 @@ async function main() {
   // ── Drivers ───────────────────────────────────────────────────────
   const ravi = await provider({
     type: "DRIVER", name: "Ravi", phone: "9700200101",
-    lat: L.yerraguntaA.lat + 0.001, lng: L.yerraguntaA.lng - 0.002, address: "Yerragunta village",
+     lat: L.nandyal.lat + 0.001, lng: L.nandyal.lng - 0.002, address: "Nandyal village",
     radius: 25, rating: 4.9, jobs: 71, responseSec: 25,
   });
   const raviProfile = await prisma.driverProfile.create({
@@ -311,8 +308,8 @@ async function main() {
   await rule(batteryPoint.id, "GARAGE_SERVICE", null, null, "PER_VISIT", { visitCharge: 250, travelCharge: 100 });
 
   const villageTyre = await provider({
-    type: "GARAGE", name: "Yerragunta Tyre Works", phone: "9700300104",
-    lat: L.yerraguntaA.lat + 0.003, lng: L.yerraguntaA.lng + 0.004, address: "Main road, Yerragunta",
+    type: "GARAGE", name: "Nandyal Tyre Works", phone: "9700300104",
+     lat: L.nandyal.lat + 0.003, lng: L.nandyal.lng + 0.004, address: "Main road, Nandyal",
     radius: 15, rating: 4.3, jobs: 41, autoAccept: false,
   });
   await prisma.garageProfile.create({
@@ -323,7 +320,7 @@ async function main() {
   // ── Farm equipment ────────────────────────────────────────────────
   const venkatramaAgri = await provider({
     type: "FARM", name: "Venkatrama Agri Services", phone: "9700400101",
-    lat: L.yerraguntaA.lat - 0.004, lng: L.yerraguntaA.lng - 0.001, address: "Yerragunta agriculture lane",
+     lat: L.nandyal.lat - 0.004, lng: L.nandyal.lng - 0.001, address: "Nandyal agriculture lane",
     radius: 25, rating: 4.8, jobs: 54, planCode: "PRO",
   });
   const tractor = await prisma.farmEquipment.create({
