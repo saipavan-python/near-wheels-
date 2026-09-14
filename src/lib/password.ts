@@ -22,8 +22,8 @@ export function verifyPassword(password: string, stored: string): boolean {
 export function validatePasswordStrength(password: string): string | null {
   if (password.length < 8) return "Password must be at least 8 characters";
   if (password.length > 128) return "Password too long";
-  if (!/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
-    // Relax for now, just require 8 chars
-  }
+  if (!/[A-Z]/.test(password)) return "Password must contain an uppercase letter";
+  if (!/[a-z]/.test(password)) return "Password must contain a lowercase letter";
+  if (!/[0-9]/.test(password)) return "Password must contain a number";
   return null;
 }
