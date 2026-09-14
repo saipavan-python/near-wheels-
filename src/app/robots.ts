@@ -1,16 +1,50 @@
 import type { MetadataRoute } from "next";
+import { siteUrl } from "@/lib/seo";
 
 export default function robots(): MetadataRoute.Robots {
-  const base = process.env.NEXT_PUBLIC_SITE_URL || "https://nearwheels.example.com";
   return {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/vehicles/", "/drivers/", "/garages/", "/farm-services/", "/yatra-buses/", "/learn-driving/"],
-        disallow: ["/api/", "/admin/", "/providers/dashboard", "/bookings", "/account", "/providers/vehicles/"],
+        allow: [
+          "/",
+          "/vehicles",
+          "/vehicles/",
+          "/drivers",
+          "/drivers/",
+          "/garages",
+          "/garages/",
+          "/farm-services",
+          "/drone-spraying",
+          "/yatra-buses",
+          "/yatra-buses/",
+          "/learn-driving",
+          "/share-my-ride",
+          "/emergency",
+          "/locations/",
+        ],
+        disallow: [
+          "/api/",
+          "/admin/",
+          "/account",
+          "/bookings",
+          "/login",
+          "/register",
+          "/provider/",
+          "/providers/dashboard",
+          "/providers/vehicles/",
+          "/providers/register",
+          "/driving-school/",
+          "/learn-driving/bookings",
+          "/share-my-ride/offer",
+          "/share-my-ride/find",
+          "/share-my-ride/ride/",
+          "/share-my-ride/live/",
+          "/share-my-ride/my-rides",
+          "/share-my-ride/my-bookings",
+        ],
       },
     ],
-    sitemap: `${base}/sitemap.xml`,
-    host: base,
+    sitemap: `${siteUrl}/sitemap.xml`,
   };
 }

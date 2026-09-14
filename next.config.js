@@ -1,4 +1,8 @@
 /** @type {import('next').NextConfig} */
+const noIndexHeaders = [
+  { key: "X-Robots-Tag", value: "noindex, nofollow" },
+];
+
 const nextConfig = {
   images: { unoptimized: true },
   async rewrites() {
@@ -20,10 +24,25 @@ const nextConfig = {
       },
       {
         source: "/api/(.*)",
-        headers: [
-          { key: "Cache-Control", value: "no-store" },
-        ],
+        headers: [{ key: "Cache-Control", value: "no-store" }],
       },
+      { source: "/admin/:path*",  headers: noIndexHeaders },
+      { source: "/account",       headers: noIndexHeaders },
+      { source: "/bookings",      headers: noIndexHeaders },
+      { source: "/login",         headers: noIndexHeaders },
+      { source: "/register",      headers: noIndexHeaders },
+      { source: "/provider/:path*", headers: noIndexHeaders },
+      { source: "/providers/dashboard", headers: noIndexHeaders },
+      { source: "/providers/vehicles/:path*", headers: noIndexHeaders },
+      { source: "/providers/register", headers: noIndexHeaders },
+      { source: "/driving-school/:path*", headers: noIndexHeaders },
+      { source: "/learn-driving/bookings/:path*", headers: noIndexHeaders },
+      { source: "/share-my-ride/offer",     headers: noIndexHeaders },
+      { source: "/share-my-ride/find",      headers: noIndexHeaders },
+      { source: "/share-my-ride/ride/:path*", headers: noIndexHeaders },
+      { source: "/share-my-ride/live/:path*", headers: noIndexHeaders },
+      { source: "/share-my-ride/my-rides",  headers: noIndexHeaders },
+      { source: "/share-my-ride/my-bookings", headers: noIndexHeaders },
     ];
   },
 };

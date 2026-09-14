@@ -27,6 +27,7 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
     title: `${g.provider.businessName} — Vehicle service & repair`,
     description: `Trusted garage in ${g.provider.addressText || "your area"}. ${g.open24x7 ? "Open 24×7." : `Open ${g.opensAt || "08:00"}–${g.closesAt || "20:00"}.`} Verified mechanics, transparent pricing on Near Wheels.`,
     openGraph: { images: [garageImage(g.id)] },
+    alternates: { canonical: `/garages/${params.id}` },
   };
 }
 

@@ -9,6 +9,7 @@ import TrustSafety from "@/components/home/TrustSafety";
 import Reviews from "@/components/home/Reviews";
 import YatraCta from "@/components/home/YatraCta";
 import TripBudgetPlanner from "@/components/TripBudgetPlanner";
+import { siteUrl } from "@/lib/seo";
 
 export default function Home() {
   return (
@@ -35,6 +36,8 @@ export default function Home() {
             "@context": "https://schema.org",
             "@type": "Organization",
             name: "Near Wheels",
+            url: siteUrl,
+            logo: `${siteUrl}/icon.svg`,
             slogan: "Your journey. Your wheels.",
             description:
               "Premium mobility marketplace for vehicle rentals, professional drivers and trusted garages.",

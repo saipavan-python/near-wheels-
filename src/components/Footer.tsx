@@ -27,6 +27,13 @@ export default function Footer() {
           ]}
         />
         <FooterCol
+          title="Top cities"
+          links={[
+            ["Vehicle rentals in Kurnool", "/locations/kurnool"],
+            ["Vehicle rentals in Nandyal", "/locations/nandyal"],
+          ]}
+        />
+        <FooterCol
           title="Company"
           links={[
             ["How it works", "/#how-it-works"],

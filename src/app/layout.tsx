@@ -7,16 +7,16 @@ import ChatWidget from "@/components/ChatWidget";
 import LoginModal from "@/components/LoginModal";
 import PageMotion from "@/components/motion/PageMotion";
 
+import { siteUrl } from "@/lib/seo";
+
 /* Fonts load at runtime via <link> (below) instead of next/font/google,
    which stalls builds when Google Fonts is unreachable. */
-
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://nearwheels.example.com";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
     default: "Near Wheels — Your journey. Your wheels.",
-    template: "%s | Near Wheels",
+    template: "%s",
   },
   description:
     "Rent cars, book professional drivers and find trusted garages — all in one premium mobility platform, powered by an AI concierge that knows what's available near you.",

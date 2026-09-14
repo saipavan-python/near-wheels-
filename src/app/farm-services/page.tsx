@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: "Farm Services & Spraying Drones Near You — Near Wheels",
   description:
     "Tractors, trailers, cultivators, rotavators, harvesters and crop-spraying drones by the acre or the day — near your farm.",
+  alternates: { canonical: "/farm-services" },
 };
 
 export default function FarmServicesPage() {

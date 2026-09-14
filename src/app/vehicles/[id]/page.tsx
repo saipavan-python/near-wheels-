@@ -9,6 +9,7 @@ import { findRuleForTarget, quoteFromRule } from "@/lib/services/pricingService"
 import { vehicleGallery, vehicleImage } from "@/lib/imagery";
 import BookingLauncher from "@/components/detail/BookingLauncher";
 import type { ResultCard } from "@/lib/types";
+import { siteUrl } from "@/lib/seo";
 
 export const revalidate = 60;
 
@@ -19,6 +20,7 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
     title: `${v.title} — Rent in ${v.provider.addressText || v.provider.businessName}`,
     description: `Book the ${v.title} (${v.seats} seats, ${v.transmission || "manual"}, ${v.fuelType || "fuel"}) on Near Wheels. Transparent daily pricing, verified owner, instant confirmation.`,
     openGraph: { images: [vehicleImage(v.title, v.category)] },
+    alternates: { canonical: `/vehicles/${v.id}` },
   };
 }
 
@@ -178,6 +180,45 @@ export default async function VehicleDetail({ params }: { params: { id: string }
           </div>
         </aside>
       </div>
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Car",
+            name: v.title,
+            brand: { "@type": "Brand", name: v.make },
+            model: v.model,
+            vehicleConfiguration: (v.transmission || "manual").toLowerCase(),
+            vehicleFuelType: v.fuelType || undefined,
+            seatingCapacity: v.seats,
+            image: vehicleImage(v.title, v.category),
+            offers: from != null
+              ? { "@type": "Offer", priceCurrency: "INR", price: Math.round(from).toString(), priceSpecification: "https://schema.org/UnitPriceSpecification", unitText: "day" }
+              : undefined,
+            provider: {
+              "@type": "Organization",
+              name: p.businessName,
+              url: `${siteUrl}/garages/${p.id}`,
+            },
+          }),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              { "@type": "ListItem", position: 1, name: "Home", item: siteUrl },
+              { "@type": "ListItem", position: 2, name: "Vehicles", item: `${siteUrl}/vehicles` },
+              { "@type": "ListItem", position: 3, name: v.title },
+            ],
+          }),
+        }}
+      />
     </div>
   );
 }

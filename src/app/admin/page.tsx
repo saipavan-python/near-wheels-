@@ -73,8 +73,8 @@ interface School {
 export default function AdminPage() {
   const [user, setUser] = useState<AdminUser | null>(null);
   const [checking, setChecking] = useState(true);
-  const [phone, setPhone] = useState("9999999999");
-  const [password, setPassword] = useState("admin123");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [stats, setStats] = useState<Stats | null>(null);
   const [providers, setProviders] = useState<Provider[]>([]);

@@ -4,6 +4,7 @@ import ServiceScreen from "@/components/ServiceScreen";
 export const metadata: Metadata = {
   title: "Find a Garage Near You — Near Wheels",
   description: "Mechanics, towing, battery, tyre and breakdown help near your location — open now.",
+  alternates: { canonical: "/garages" },
 };
 
 export default function GaragesPage() {

@@ -4,6 +4,20 @@ import { Bus, CalendarDays, CheckCircle2, MapPin, Users } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { packageInclude, publicPackage } from "@/lib/services/yatraService";
 
+export const revalidate = 60;
+
+export async function generateMetadata({ params }: { params: { id: string } }) {
+  const found = await prisma.yatraBusPackage.findFirst({
+    where: { id: params.id, status: "PUBLISHED", isPublished: true, isActive: true },
+  });
+  if (!found) return { title: "Yatra bus not found" };
+  return {
+    title: `${found.packageName} — Yatra Bus | Near Wheels`,
+    description: `Book the ${found.packageName} yatra bus package. Fixed departures, temple stops, verified operator and live seat availability.`,
+    alternates: { canonical: `/yatra-buses/${found.id}` },
+  };
+}
+
 export default async function YatraDetails({ params }: { params: { id: string } }) {
   const found = await prisma.yatraBusPackage.findFirst({ where: { id: params.id, status: "PUBLISHED", isPublished: true, isActive: true }, include: packageInclude });
   if (!found || found.departureDate < new Date()) notFound();

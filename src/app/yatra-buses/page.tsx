@@ -4,6 +4,7 @@ import YatraBusPortal from "@/components/YatraBusPortal";
 export const metadata: Metadata = {
   title: "Yatra Buses — Temple Devotional Packages | Near Wheels",
   description: "Book devotional temple packages for Tirupati, Srisailam, Bhadrachalam & more. Live seat counts and verified bus operators.",
+  alternates: { canonical: "/yatra-buses" },
 };
 
 export default function YatraBusesPage() {

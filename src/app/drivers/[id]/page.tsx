@@ -23,8 +23,9 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   const name = prof?.provider.businessName || roster?.name;
   return {
     title: `${name} — Professional driver`,
-    description: `Book ${name} on Near Wheels.`,
+    description: `Book ${name}, a verified driver in ${roster?.provider?.addressText || prof?.provider?.addressText || "your area"}, on Near Wheels. Rated by real travellers, transparent hourly pricing.`,
     openGraph: { images: [IMGS.driverProfile] },
+    alternates: { canonical: `/drivers/${params.id}` },
   };
 }
 

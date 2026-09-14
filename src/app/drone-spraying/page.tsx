@@ -4,6 +4,7 @@ import ServiceScreen from "@/components/ServiceScreen";
 export const metadata: Metadata = {
   title: "Drone Spraying Services — Near Wheels",
   description: "Verified drone operators for precision crop spraying — per-acre pricing, capacity and availability upfront.",
+  alternates: { canonical: "/drone-spraying" },
 };
 
 export default function DroneSprayingPage() {
