@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
 import { ok, fail } from "@/lib/http";
 import { prisma } from "@/lib/db";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -38,6 +39,9 @@ export async function GET(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const admin = requireAdmin();
   if (!admin) return fail("Admin only", 403);
+  const ip = getClientIp(req);
+  const rl = checkRateLimit(`admin-action:${ip}`, 20, 60_000);
+  if (!rl.allowed) return fail("Too many admin actions. Try again.", 429);
   const b = await req.json().catch(() => ({}));
   const ids = b.ids || [];
   if (!Array.isArray(ids) || ids.length === 0) return fail("ids array required", 400);
