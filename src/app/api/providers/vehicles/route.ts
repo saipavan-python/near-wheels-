@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+﻿import { NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
@@ -12,7 +12,7 @@ async function requireProvider() {
   if (!session) throw new Error("Login required");
   if (session.role !== "PROVIDER" && session.role !== "ADMIN") throw new Error("Provider access required");
   const provider = await prisma.provider.findFirst({ where: { userId: session.userId } });
-  if (!provider) throw new Error("No provider profile — register as provider first");
+  if (!provider) throw new Error("No provider profile â€” register as provider first");
   return { session, provider };
 }
 
@@ -75,7 +75,7 @@ export async function GET() {
     const msg = e.message || "Failed to fetch vehicles";
     if (msg.includes("Login")) return fail(msg, 401);
     if (msg.includes("Provider")) return fail(msg, 403);
-    console.error("GET vehicles", e);
+    console.error("GET vehicles");
     return fail("Failed to load vehicles", 500);
   }
 }
@@ -124,7 +124,7 @@ export async function POST(req: NextRequest) {
     const perAcre = pricing.perAcre != null ? Number(pricing.perAcre) : null;
     const visitCharge = pricing.visitCharge != null ? Number(pricing.visitCharge) : null;
 
-    if (dailyRate != null && (dailyRate < 100 || dailyRate > 100000)) return fail("Daily rate must be between ₹100 and ₹100,000");
+    if (dailyRate != null && (dailyRate < 100 || dailyRate > 100000)) return fail("Daily rate must be between â‚¹100 and â‚¹100,000");
     if (hourlyRate != null && (hourlyRate < 50 || hourlyRate > 20000)) return fail("Hourly rate invalid");
 
     // Determine pricing model
@@ -204,7 +204,7 @@ export async function POST(req: NextRequest) {
 
     return ok({ vehicle, message: "Vehicle registered successfully" }, { status: 201 });
   } catch (e: any) {
-    console.error("POST vehicle", e);
+    console.error("POST vehicle");
     return fail(e?.message || "Could not register vehicle", 400);
   }
 }

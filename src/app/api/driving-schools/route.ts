@@ -1,4 +1,4 @@
-// @ts-nocheck — SQLite mode insensitive + Json string casting handled at runtime
+﻿// @ts-nocheck â€” SQLite mode insensitive + Json string casting handled at runtime
 import { NextRequest } from "next/server";
 import { ok, fail, readJson } from "@/lib/http";
 import { prisma } from "@/lib/db";
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
     });
     return res;
   } catch (error) {
-    console.error("Error registering driving school:", error);
+    console.error("Error registering driving school:");
     if (error instanceof z.ZodError) {
       return fail("Validation error: " + error.errors.map((e) => e.message).join(", "), 400);
     }
@@ -177,7 +177,7 @@ export async function GET(req: NextRequest) {
 
     return ok({ schools: result, count: result.length });
   } catch (error) {
-    console.error("Error fetching driving schools:", error);
+    console.error("Error fetching driving schools:");
     return fail("Error fetching driving schools", 500);
   }
 }

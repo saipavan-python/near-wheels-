@@ -1,4 +1,4 @@
-import { prisma } from "../db";
+﻿import { prisma } from "../db";
 import { getSettings } from "../config";
 import { moveStatus } from "./bookingService";
 import { notifyUser, notifyProvider } from "./notificationService";
@@ -19,7 +19,7 @@ function getWebhookSecret(): string {
 }
 
 /**
- * Payment flow (spec §44, §76): customer pays Near Wheels; commission is
+ * Payment flow (spec Â§44, Â§76): customer pays Near Wheels; commission is
  * deducted and the rest becomes a provider payout. Every state change leaves
  * an auditable record. "Payment successful" only ever comes from here.
  */
@@ -150,7 +150,7 @@ export async function verifyPayment(gatewayRef: string, outcome: "success" | "fa
   try {
     await moveStatus(booking.id, "CONFIRMED");
   } catch {
-    // e.g. was already EN_ROUTE — keep payment state consistent regardless
+    // e.g. was already EN_ROUTE â€” keep payment state consistent regardless
   }
 
   await audit("SYSTEM", null, "PAYMENT_VERIFIED", "Payment", payment.id, {
@@ -159,11 +159,11 @@ export async function verifyPayment(gatewayRef: string, outcome: "success" | "fa
     commission,
   });
   await Promise.all([
-    notifyUser(booking.customerId, "Payment received", `${booking.code} is confirmed. Amount ₹${payment.amount}.`, "/bookings", "SUCCESS"),
+    notifyUser(booking.customerId, "Payment received", `${booking.code} is confirmed. Amount â‚¹${payment.amount}.`, "/bookings", "SUCCESS"),
     notifyProvider(
       booking.providerId,
       "Booking confirmed",
-      `${booking.code} confirmed. Payout ₹${Math.round((booking.totalAmount - commission) * 100) / 100} after commission.`,
+      `${booking.code} confirmed. Payout â‚¹${Math.round((booking.totalAmount - commission) * 100) / 100} after commission.`,
       "/providers/dashboard",
       "SUCCESS"
     ),
@@ -180,7 +180,7 @@ export async function refundPayment(paymentId: string) {
     try {
       await razorpayClient.payments.refund(payment.gatewayRef, { speed: "optimum" });
     } catch (e) {
-      console.error("Razorpay refund failed:", e);
+      console.error("Razorpay refund failed:");
     }
   }
 
@@ -190,7 +190,7 @@ export async function refundPayment(paymentId: string) {
     data: { paymentStatus: "REFUNDED", status: "REFUNDED" },
   });
   await prisma.payout.deleteMany({ where: { bookingId: booking.id, status: { in: ["PENDING", "PROCESSING"] } } });
-  await notifyUser(booking.customerId, "Refund processed", `₹${payment.amount} refunded for ${booking.code}.`, "/bookings", "INFO");
+  await notifyUser(booking.customerId, "Refund processed", `â‚¹${payment.amount} refunded for ${booking.code}.`, "/bookings", "INFO");
   await audit("ADMIN", undefined, "REFUND_PAYMENT", "Payment", paymentId, { amount: payment.amount });
   return { refunded: true };
 }

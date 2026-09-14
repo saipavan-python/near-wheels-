@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+﻿import { NextRequest } from "next/server";
 import { ok, fail, readJson } from "@/lib/http";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
@@ -50,7 +50,7 @@ export async function POST(
 
     return ok({ instructor });
   } catch (error) {
-    console.error("Error creating instructor:", error);
+    console.error("Error creating instructor:");
     if (error instanceof z.ZodError) {
       return fail("Validation error", 400);
     }
@@ -79,7 +79,7 @@ export async function GET(
 
     return ok({ instructors: result });
   } catch (error) {
-    console.error("Error fetching instructors:", error);
+    console.error("Error fetching instructors:");
     return fail("Error fetching instructors", 500);
   }
 }

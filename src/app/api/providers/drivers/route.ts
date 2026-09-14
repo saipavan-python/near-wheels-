@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+﻿import { NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
@@ -26,7 +26,7 @@ async function requireProvider() {
   if (!session) throw new Error("Login required");
   if (session.role !== "PROVIDER" && session.role !== "ADMIN") throw new Error("Provider access required");
   const provider = await prisma.provider.findFirst({ where: { userId: session.userId } });
-  if (!provider) throw new Error("No provider profile — register as provider first");
+  if (!provider) throw new Error("No provider profile â€” register as provider first");
   return { session, provider };
 }
 
@@ -92,7 +92,7 @@ export async function GET() {
     const m = e.message || "Failed to fetch drivers";
     if (m.includes("Login")) return fail(m, 401);
     if (m.includes("Provider")) return fail(m, 403);
-    console.error("GET drivers", e);
+    console.error("GET drivers");
     return fail("Failed to load drivers", 500);
   }
 }
@@ -139,11 +139,11 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Pricing rule if provided (optional — falls back to provider-level DRIVER rule)
+    // Pricing rule if provided (optional â€” falls back to provider-level DRIVER rule)
     const pricing = b.pricing || {};
     const dailyRate = pricing.dailyRate != null ? Number(pricing.dailyRate) : b.dailyRate != null ? Number(b.dailyRate) : null;
     const hourlyRate = pricing.hourlyRate != null ? Number(pricing.hourlyRate) : null;
-    if (dailyRate != null && (dailyRate < 100 || dailyRate > 100000)) return fail("Daily rate must be between ₹100 and ₹100,000");
+    if (dailyRate != null && (dailyRate < 100 || dailyRate > 100000)) return fail("Daily rate must be between â‚¹100 and â‚¹100,000");
     if (hourlyRate != null && (hourlyRate < 50 || hourlyRate > 20000)) return fail("Hourly rate invalid");
     if (dailyRate !== null || hourlyRate !== null) {
       await prisma.pricingRule.create({
@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
 
     return ok({ driver: { ...driver, categories }, message: "Driver added to roster" }, { status: 201 });
   } catch (e: any) {
-    console.error("POST driver", e);
+    console.error("POST driver");
     return fail(e?.message || "Could not add driver", 400);
   }
 }

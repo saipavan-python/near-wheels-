@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -71,7 +71,7 @@ export default function DrivingSchoolRegisterPage() {
           }));
         },
         (error) => {
-          console.error("Error getting location:", error);
+          console.error("Error getting location:");
           alert("Could not get your location");
         }
       );
@@ -112,7 +112,7 @@ export default function DrivingSchoolRegisterPage() {
         alert(data.error || "Registration failed");
       }
     } catch (error) {
-      console.error("Error registering:", error);
+      console.error("Error registering:");
       alert("Error submitting registration");
     } finally {
       setLoading(false);
@@ -125,7 +125,7 @@ export default function DrivingSchoolRegisterPage() {
         {/* Header */}
         <div className="mb-8">
           <Link href="/" className="text-blue-600 hover:text-blue-700 text-sm font-medium mb-4 inline-block">
-            ← Back to Home
+            â† Back to Home
           </Link>
           <h1 className="text-3xl font-bold text-gray-900">Register Your Driving School</h1>
           <p className="text-gray-600 mt-2">Join our network of trusted driving schools and start accepting students</p>
@@ -381,7 +381,7 @@ export default function DrivingSchoolRegisterPage() {
                           }`}
                         >
                           {formData.services.includes(service.value) && (
-                            <span className="text-white text-sm">✓</span>
+                            <span className="text-white text-sm">âœ“</span>
                           )}
                         </div>
                         {service.label}
@@ -398,7 +398,7 @@ export default function DrivingSchoolRegisterPage() {
             <div className="space-y-6">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <p className="text-sm text-blue-900">
-                  ✓ Please review your information below. After submission, your school will be under verification.
+                  âœ“ Please review your information below. After submission, your school will be under verification.
                 </p>
               </div>
 

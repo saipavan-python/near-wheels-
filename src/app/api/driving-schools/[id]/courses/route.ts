@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+﻿import { NextRequest } from "next/server";
 import { ok, fail, readJson } from "@/lib/http";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     return ok({ course });
   } catch (error) {
-    console.error("Error creating course:", error);
+    console.error("Error creating course:");
     if (error instanceof z.ZodError) {
       return fail("Validation error", 400);
     }
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     return ok({ courses: result });
   } catch (error) {
-    console.error("Error fetching courses:", error);
+    console.error("Error fetching courses:");
     return fail("Error fetching courses", 500);
   }
 }

@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+﻿import { NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
         ],
       },
     });
-    if (overlap) return fail(`Already marked unavailable for ${overlap.startDate.toISOString().slice(0,10)} → ${overlap.endDate.toISOString().slice(0,10)}`, 409);
+    if (overlap) return fail(`Already marked unavailable for ${overlap.startDate.toISOString().slice(0,10)} â†’ ${overlap.endDate.toISOString().slice(0,10)}`, 409);
 
     // Check for existing confirmed bookings in that range
     const bookingConflict = await prisma.booking.findFirst({
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
       },
     });
     if (bookingConflict) {
-      return fail(`Cannot mark unavailable — booking ${bookingConflict.code} exists on ${bookingConflict.scheduledFor ? new Date(bookingConflict.scheduledFor).toISOString().slice(0,10) : "that date"}`, 409);
+      return fail(`Cannot mark unavailable â€” booking ${bookingConflict.code} exists on ${bookingConflict.scheduledFor ? new Date(bookingConflict.scheduledFor).toISOString().slice(0,10) : "that date"}`, 409);
     }
 
     const reason = b.reason ? String(b.reason).toUpperCase() : "OTHER";
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
 
     return ok({ availability: created }, { status: 201 });
   } catch (e: any) {
-    console.error("POST availability", e);
+    console.error("POST availability");
     const m = e.message || "Failed to create";
     if (m.includes("Login")) return fail(m, 401);
     if (m.includes("Provider") || m.includes("Not your")) return fail(m, 403);

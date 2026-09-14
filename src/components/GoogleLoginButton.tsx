@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useRef } from "react";
 import { api } from "@/lib/ui";
@@ -55,7 +55,7 @@ export default function GoogleLoginButton({ onSuccess, label = "Continue with Go
         // Also enable One Tap if desired (optional, disabled to avoid intrusive)
         // window.google.accounts.id.prompt();
       } catch (e) {
-        console.error("GIS init failed", e);
+        console.error("GIS init failed");
       }
     };
 
@@ -117,9 +117,9 @@ export default function GoogleLoginButton({ onSuccess, label = "Continue with Go
       <noscript>
         <p className="text-xs text-red-600">Enable JavaScript for Google login</p>
       </noscript>
-      {loading && <p className="mt-2 text-center text-xs text-ink-mute">Verifying with Google…</p>}
+      {loading && <p className="mt-2 text-center text-xs text-ink-mute">Verifying with Googleâ€¦</p>}
       {err && <p className="mt-2 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600">{err}</p>}
-      <p className="mt-2 text-center text-[11px] text-ink-faint">Secure Google sign-in · We never store your Google password</p>
+      <p className="mt-2 text-center text-[11px] text-ink-faint">Secure Google sign-in Â· We never store your Google password</p>
     </div>
   );
 }

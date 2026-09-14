@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import type { ResultCard, SearchResult } from "@/lib/ui";
@@ -121,7 +121,7 @@ export default function EmergencyClient() {
       typeof loc.lng !== "number"
     ) {
       setError(
-        "Turn on location or pick where you are — we need your location to find the fastest help."
+        "Turn on location or pick where you are â€” we need your location to find the fastest help."
       );
 
       return;
@@ -157,7 +157,7 @@ export default function EmergencyClient() {
       setSummary(result);
       setItems(result.items || []);
     } catch (err) {
-      console.error("Emergency search failed:", err);
+      console.error("Emergency search failed:");
 
       setError(
         "Something went wrong while finding emergency help. Please try again."
@@ -369,7 +369,7 @@ export default function EmergencyClient() {
                 hover:text-red-700
               "
             >
-              ← Change help type
+              â† Change help type
             </button>
 
             {/* Selected service */}

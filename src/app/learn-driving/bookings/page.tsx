@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -45,7 +45,7 @@ export default function MyBookingsPage() {
           );
         }
       } catch (error) {
-        console.error("Error loading bookings:", error);
+        console.error("Error loading bookings:");
       } finally {
         setLoading(false);
       }
@@ -154,7 +154,7 @@ export default function MyBookingsPage() {
                         )}
 
                         <div className="flex items-center gap-2 text-sm text-gray-600">
-                          <span className="font-semibold text-gray-900">₹{booking.totalAmount}</span>
+                          <span className="font-semibold text-gray-900">â‚¹{booking.totalAmount}</span>
                         </div>
 
                         <div className="text-xs text-gray-500">ID: {booking.code}</div>

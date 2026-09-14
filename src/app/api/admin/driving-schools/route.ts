@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+﻿import { NextRequest } from "next/server";
 import { ok, fail, readJson } from "@/lib/http";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
       totalPages: Math.ceil(total / pageSize),
     });
   } catch (error) {
-    console.error("Error fetching schools for verification:", error);
+    console.error("Error fetching schools for verification:");
     return fail("Error fetching schools", 500);
   }
 }
@@ -83,7 +83,7 @@ export async function PATCH(req: NextRequest) {
 
     return ok({ school });
   } catch (error) {
-    console.error("Error updating school status:", error);
+    console.error("Error updating school status:");
     return fail("Error updating school status", 500);
   }
 }

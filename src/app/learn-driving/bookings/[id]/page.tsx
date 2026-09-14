@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -52,7 +52,7 @@ export default function BookingDetailsPage() {
           setBooking(data.booking);
         }
       } catch (error) {
-        console.error("Error fetching booking:", error);
+        console.error("Error fetching booking:");
       } finally {
         setLoading(false);
       }
@@ -132,7 +132,7 @@ export default function BookingDetailsPage() {
                   {booking.school.address}
                 </p>
                 <p className="text-sm text-gray-600 mt-2">
-                  📞 {booking.school.phone}
+                  ðŸ“ž {booking.school.phone}
                 </p>
               </div>
 
@@ -145,7 +145,7 @@ export default function BookingDetailsPage() {
                     <span className="text-gray-600">Total Lessons:</span> <span className="font-semibold">{booking.course.numLessons}</span>
                   </p>
                   <p>
-                    <span className="text-gray-600">Price per Lesson:</span> <span className="font-semibold">₹{booking.course.price}</span>
+                    <span className="text-gray-600">Price per Lesson:</span> <span className="font-semibold">â‚¹{booking.course.price}</span>
                   </p>
                 </div>
               </div>
@@ -241,12 +241,12 @@ export default function BookingDetailsPage() {
                 <div className="space-y-2 mb-4 border-b pb-4">
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">Course Price</span>
-                    <span className="font-semibold text-gray-900">₹{booking.totalAmount}</span>
+                    <span className="font-semibold text-gray-900">â‚¹{booking.totalAmount}</span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-lg font-bold text-gray-900">Total</span>
-                  <span className="text-2xl font-bold text-blue-600">₹{booking.totalAmount}</span>
+                  <span className="text-2xl font-bold text-blue-600">â‚¹{booking.totalAmount}</span>
                 </div>
               </div>
             </div>

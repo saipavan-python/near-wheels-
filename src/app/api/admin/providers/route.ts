@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
 import { audit } from "@/lib/services/auditService";

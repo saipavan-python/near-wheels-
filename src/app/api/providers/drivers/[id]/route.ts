@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+﻿import { NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
@@ -119,7 +119,7 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
 
     return ok({ driver: { ...updated, categories: parse(updated.categoriesJson, []) } });
   } catch (e: any) {
-    console.error("PATCH driver", e);
+    console.error("PATCH driver");
     return fail(e?.message || "Update failed", 400);
   }
 }

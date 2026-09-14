@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+﻿import { NextRequest } from "next/server";
 import { ok, fail } from "@/lib/http";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
@@ -118,7 +118,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
     return ok({ school: response });
   } catch (error) {
-    console.error("Error fetching school details:", error);
+    console.error("Error fetching school details:");
     return fail("Error fetching school details", 500);
   }
 }
@@ -167,7 +167,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     return ok({ school: updated });
   } catch (error) {
-    console.error("Error updating school:", error);
+    console.error("Error updating school:");
     return fail("Error updating school", 500);
   }
 }

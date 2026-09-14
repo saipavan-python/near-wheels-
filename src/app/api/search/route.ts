@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+﻿import { NextRequest } from "next/server";
 import {
   searchVehicles,
   searchDrivers,
@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
     if (e instanceof NoLocationError) {
       return fail(e.message, 422, { code: "NO_LOCATION" });
     }
-    console.error("search error", e);
+    console.error("search error");
     return fail("Search failed. Please try again.", 500);
   }
 }

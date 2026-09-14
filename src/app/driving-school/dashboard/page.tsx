@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -63,7 +63,7 @@ export default function DrivingSchoolDashboardPage() {
           averageRating: 5.0,
         });
       } catch (error) {
-        console.error("Error loading dashboard:", error);
+        console.error("Error loading dashboard:");
       } finally {
         setLoading(false);
       }

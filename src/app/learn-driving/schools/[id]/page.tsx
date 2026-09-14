@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
@@ -49,7 +49,7 @@ export default function SchoolDetailsPage() {
           setSchool(data.school);
         }
       } catch (error) {
-        console.error("Error fetching school:", error);
+        console.error("Error fetching school:");
       } finally {
         setLoading(false);
       }
@@ -175,17 +175,17 @@ export default function SchoolDetailsPage() {
                       <div>
                         <h3 className="font-semibold text-gray-900">{course.name}</h3>
                         <p className="text-sm text-gray-600">
-                          {course.numLessons} lessons • {course.duration} min each
+                          {course.numLessons} lessons â€¢ {course.duration} min each
                         </p>
                         <p className="text-sm text-gray-600 mt-1">
-                          {course.transmission} • {course.vehicleType || "Any vehicle"}
+                          {course.transmission} â€¢ {course.vehicleType || "Any vehicle"}
                         </p>
                         {course.description && (
                           <p className="text-sm text-gray-700 mt-2">{course.description}</p>
                         )}
                       </div>
                       <div className="text-right">
-                        <p className="text-2xl font-bold text-gray-900">₹{course.price}</p>
+                        <p className="text-2xl font-bold text-gray-900">â‚¹{course.price}</p>
                         <button
                           onClick={() => setShowBooking(true)}
                           className="mt-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition"
@@ -247,7 +247,7 @@ export default function SchoolDetailsPage() {
                       {vehicle.brand} {vehicle.model}
                     </h3>
                     <p className="text-sm text-gray-600">
-                      {vehicle.year} • {vehicle.transmission}
+                      {vehicle.year} â€¢ {vehicle.transmission}
                     </p>
                   </div>
                 ))
