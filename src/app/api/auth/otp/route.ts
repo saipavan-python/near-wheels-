@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { randomInt } from "crypto";
 import { prisma } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
 import { createSessionToken, sessionCookieOptions } from "@/lib/session";
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
   const recentCount = await prisma.otpCode.count({ where: { phone, createdAt: { gte: new Date(Date.now() - 15 * 60_000) } } });
   if (recentCount >= 5) return fail("Too many OTPs for this number. Try again after 15 minutes.", 429);
 
-  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const code = String(randomInt(100000, 1000000));
   await prisma.otpCode.create({
     data: { phone, code, expiresAt: new Date(Date.now() + 5 * 60_000) },
   });

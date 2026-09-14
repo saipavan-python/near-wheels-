@@ -13,7 +13,11 @@ export interface SessionPayload {
 
 function secret(): string {
   const s = process.env.SESSION_SECRET;
-  if (!s || s === "change-me-to-a-long-random-string" || s.length < 32) {
+  const knownDefaults = new Set([
+    "change-me-to-a-long-random-string",
+    "change-me-to-a-long-random-string-at-least-32-chars",
+  ]);
+  if (!s || knownDefaults.has(s) || s.length < 32) {
     if (process.env.NODE_ENV === "production") {
       throw new Error("SESSION_SECRET must be set to a strong random value in production");
     }
