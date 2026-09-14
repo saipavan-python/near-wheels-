@@ -3,7 +3,7 @@ import { getSession } from "@/lib/session";
 import { ok, fail } from "@/lib/http";
 import { initiatePayment, verifyPayment } from "@/lib/services/paymentService";
 import { audit } from "@/lib/services/auditService";
-import Razorpay, { validateWebhookSignature } from "razorpay";
+import Razorpay from "razorpay";
 
 export const runtime = "nodejs";
 
@@ -69,7 +69,7 @@ export async function PUT(req: NextRequest) {
     try {
       const body = JSON.stringify(b);
       const signature = req.headers.get("x-razorpay-signature") || "";
-      const isValid = validateWebhookSignature(body, signature, webhookSecret);
+      const isValid = Razorpay.validateWebhookSignature(body, signature, webhookSecret);
       if (!isValid) return fail("Invalid Razorpay signature", 403);
     } catch (e) {
       console.error("Webhook signature verification failed:", e);

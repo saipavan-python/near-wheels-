@@ -3,7 +3,7 @@ import { getSettings } from "../config";
 import { moveStatus } from "./bookingService";
 import { notifyUser, notifyProvider } from "./notificationService";
 import { audit } from "./auditService";
-import Razorpay, { validateWebhookSignature } from "razorpay";
+import Razorpay from "razorpay";
 
 const razorpayClient = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID || "",
@@ -98,7 +98,7 @@ export async function verifyPayment(gatewayRef: string, outcome: "success" | "fa
     }
     if (signature && getWebhookSecret()) {
       const body = JSON.stringify({});
-      const isValid = validateWebhookSignature(body, signature, getWebhookSecret());
+      const isValid = Razorpay.validateWebhookSignature(body, signature, getWebhookSecret());
       if (!isValid) {
         await prisma.payment.update({
           where: { id: payment.id },

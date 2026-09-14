@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Star } from "lucide-react";
+import type { ResultCard } from "@/lib/ui";
 import { api, inr } from "@/lib/ui";
 import Reveal from "./Reveal";
 
