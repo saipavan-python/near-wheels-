@@ -1,0 +1,1295 @@
+// Near Wheels — Prisma schema.
+// Portable across SQLite (dev) and PostgreSQL (production):
+//  - no native enums (String + app-level unions)
+//  - no Json columns (JSON stored in String fields, serialized by services)
+//  - geospatial via lat/lng floats + service-layer haversine
+//    (swap to PostGIS geography later without breaking app contracts)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ── USER ──────────────────────────────────────────────────────────────
+// Single identity for Customer, Provider, and Admin.
+// Do NOT use phone/email as relationship keys — use id.
+
+model User {
+  id            String   @id @default(cuid())
+  phone         String?  @unique
+  name          String?
+  email         String?  @unique
+  googleId      String?  @unique
+  avatarUrl     String?
+  emailVerified Boolean  @default(false)
+  // CUSTOMER | PROVIDER | ADMIN
+  role          String   @default("CUSTOMER")
+  passwordHash  String?
+  status        String   @default("ACTIVE") // ACTIVE | SUSPENDED | DELETED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  bookings            Booking[]
+  reviews             Review[]
+  favorites           Favorite[]
+  conversations       Conversation[]
+  notifications       Notification[]
+  yatraBookings       YatraBooking[]
+  drivingSchools      DrivingSchool[]
+  drivingBookings     DrivingBooking[]
+  drivingReviews      DrivingReview[]
+  providerMemberships ProviderMember[]
+  // Booking-linked direct chat participation
+  chatParticipations  BookingChatParticipant[]
+
+  @@index([role])
+  @@index([status])
+}
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  phone     String
+  code      String
+  expiresAt DateTime
+  consumed  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+}
+
+// ── PROVIDER / BUSINESS ───────────────────────────────────────────────
+// One Provider record = one business entity.
+// Multiple Users can belong to a Provider through ProviderMember.
+
+model Provider {
+  id                 String   @id @default(cuid())
+  // VEHICLE_OWNER | DRIVER | GARAGE | FARM | DRONE | MIXED
+  type               String
+  businessName       String
+  phone              String
+  about              String?
+  logoUrl            String?
+  // ownerUserId: the primary user who owns/created this provider
+  userId             String?
+  // DRAFT | PENDING_VERIFICATION | VERIFIED | ACTIVE | BUSY | SUSPENDED | REJECTED | EXPIRED | MAINTENANCE | OFFLINE
+  status             String   @default("DRAFT")
+  // AVAILABLE_NOW | BUSY | SCHEDULED | OFFLINE | MAINTENANCE
+  availabilityStatus String   @default("OFFLINE")
+  // Verification
+  verificationStatus String   @default("UNVERIFIED") // UNVERIFIED | PENDING | VERIFIED | REJECTED
+  isVerified         Boolean  @default(false)
+  lat                Float
+  lng                Float
+  addressText        String?
+  serviceRadiusKm    Float    @default(15)
+  autoAccept         Boolean  @default(false)
+  responseTimeSec    Int      @default(60)
+  ratingAvg          Float    @default(0)
+  ratingCount        Int      @default(0)
+  completedJobs      Int      @default(0)
+  cancelledJobs      Int      @default(0)
+  acceptedRequests   Int      @default(0)
+  totalRequests      Int      @default(0)
+  docsJson           String   @default("{}")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  vehicles          Vehicle[]
+  driverProfile     DriverProfile?
+  garageProfile     GarageProfile?
+  farmEquipment     FarmEquipment[]
+  droneProfile      DroneProfile?
+  pricingRules      PricingRule[]
+  bookings          Booking[]              @relation("ProviderBookings")
+  payouts           Payout[]
+  subscription      ProviderSubscription?
+  reviews           Review[]
+  favorites         Favorite[]
+  commissionRecords CommissionRecord[]
+  notifications     Notification[]         @relation("ProviderNotifications")
+  yatraPackages     YatraBusPackage[]
+  yatraBookings     YatraBooking[]         @relation("YatraOperatorBookings")
+  members           ProviderMember[]
+  // New: multiple physical locations
+  locations         ProviderLocation[]
+  // New: provider-owned drivers (separate from DriverProfile which is for driver-type providers)
+  drivers           Driver[]
+  // New: service offerings (GARAGE, DRIVING_SCHOOL, CAR_WASH, etc.)
+  services          ProviderService[]
+  // New: maintenance records for assets
+  maintenanceRecords MaintenanceRecord[]
+
+  @@index([type, status])
+  @@index([status, availabilityStatus])
+  @@index([userId])
+  @@index([verificationStatus])
+}
+
+// ── PROVIDER MEMBERSHIP ───────────────────────────────────────────────
+// Allows multiple users to be part of one provider business with different roles.
+// OWNER | FLEET_MANAGER | BOOKING_MANAGER | FINANCE_MANAGER | DRIVER_MANAGER | GARAGE_MANAGER | STAFF
+
+model ProviderMember {
+  id         String   @id @default(cuid())
+  providerId String
+  userId     String
+  // OWNER | FLEET_MANAGER | BOOKING_MANAGER | FINANCE_MANAGER | DRIVER_MANAGER | GARAGE_MANAGER | STAFF
+  role       String
+  // ACTIVE | INVITED | SUSPENDED | REMOVED
+  status     String   @default("ACTIVE")
+  invitedAt  DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, userId])
+  @@index([providerId])
+  @@index([userId])
+}
+
+// ── PROVIDER LOCATIONS ────────────────────────────────────────────────
+// A provider may operate from multiple physical locations.
+// Assets and services can reference a specific location.
+
+model ProviderLocation {
+  id         String   @id @default(cuid())
+  providerId String
+  name       String   // e.g. "Main Garage", "City Branch"
+  address    String
+  city       String
+  state      String
+  postalCode String?
+  lat        Float
+  lng        Float
+  // PRIMARY | BRANCH | PICKUP_POINT
+  locationType String  @default("PRIMARY")
+  // ACTIVE | INACTIVE
+  status     String   @default("ACTIVE")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId, status])
+}
+
+// ── VEHICLE / ASSET MODEL ─────────────────────────────────────────────
+// Existing Vehicle is the source of truth for all bookable assets.
+// Extended with locationId for multi-location providers.
+
+model Vehicle {
+  id                 String  @id @default(cuid())
+  providerId         String
+  // CAR | AUTO | BIKE | SCOOTER | SUV | VAN | PICKUP | TRUCK | BUS
+  // | TRACTOR | HARVESTER | JCB | EXCAVATOR | CONSTRUCTION_EQUIPMENT
+  // | AGRICULTURAL_EQUIPMENT | OTHER
+  category           String
+  make               String
+  model              String
+  title              String
+  variant            String?
+  seats              Int     @default(4)
+  transmission       String?  // MANUAL | AUTOMATIC
+  fuelType           String?  // PETROL | DIESEL | CNG | ELECTRIC
+  ac                 Boolean?
+  selfDriveAllowed   Boolean @default(false)
+  withDriverAllowed  Boolean @default(true)
+  loadCapacityTons   Float?
+  // ACTIVE | INACTIVE | PENDING_VERIFICATION | SUSPENDED | MAINTENANCE
+  status             String  @default("PENDING_VERIFICATION")
+  year               Int?
+  color              String?
+  registrationNumber String?
+  imageUrl           String?
+  imagesJson         String   @default("[]")
+  pickupLat          Float?
+  pickupLng          Float?
+  pickupAddress      String?
+  // JSON object for asset-specific details (HP, hours, bucket capacity, helmet, etc.)
+  specsJson          String   @default("{}")
+  // Optional link to a specific provider location
+  locationId         String?
+  basePrice          Float?
+  pricingModel       String?  // DAILY | HOURLY | PER_KM | PER_TRIP | PER_ACRE | PER_VISIT
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  provider       Provider              @relation(fields: [providerId], references: [id])
+  yatraPackages  YatraBusPackage[]
+  availabilities VehicleAvailability[]
+  maintenanceRecords MaintenanceRecord[]
+
+  @@index([category, status])
+  @@index([providerId])
+  @@index([status])
+  @@index([locationId])
+}
+
+// ── ASSET AVAILABILITY ────────────────────────────────────────────────
+// Date/time based availability blocks.
+// AVAILABLE | BLOCKED | MAINTENANCE | PERSONAL_USE | UNAVAILABLE
+
+model VehicleAvailability {
+  id        String   @id @default(cuid())
+  vehicleId String
+  startDate DateTime
+  endDate   DateTime
+  // UNAVAILABLE | MAINTENANCE | PERSONAL_USE | BLOCKED
+  status    String   @default("UNAVAILABLE")
+  // MAINTENANCE | PERSONAL_USE | EXTERNAL_RENT | OTHER
+  reason    String?
+  note      String?
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([vehicleId])
+  @@index([vehicleId, startDate, endDate])
+  @@index([status])
+  @@index([startDate, endDate])
+}
+
+// ── MAINTENANCE RECORDS ───────────────────────────────────────────────
+// Track maintenance history for vehicles and assets.
+
+model MaintenanceRecord {
+  id          String    @id @default(cuid())
+  vehicleId   String?
+  providerId  String?
+  // OIL_CHANGE | TYRE_CHANGE | ENGINE_SERVICE | BRAKE_SERVICE | GENERAL | INSPECTION | OTHER
+  type        String
+  description String?
+  scheduledAt DateTime?
+  completedAt DateTime?
+  engineHours Float?
+  odometer    Float?
+  cost        Float?
+  vendor      String?
+  // SCHEDULED | IN_PROGRESS | COMPLETED | CANCELLED
+  status      String    @default("SCHEDULED")
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  vehicle  Vehicle?  @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  provider Provider? @relation(fields: [providerId], references: [id], onDelete: SetNull)
+
+  @@index([vehicleId, status])
+  @@index([providerId])
+  @@index([scheduledAt])
+}
+
+// ── DRIVER (Provider-owned) ───────────────────────────────────────────
+// Drivers hired/managed by a Provider business.
+// Separate concept from DriverProfile (which is a provider who IS a driver).
+// userId is nullable — driver may or may not have a Near Wheels login.
+
+model Driver {
+  id                 String   @id @default(cuid())
+  providerId         String
+  // Linked user account (if driver has platform login)
+  userId             String?
+  name               String
+  phone              String?
+  photoUrl           String?
+  experienceYears    Int      @default(0)
+  // JSON array: e.g. ["Telugu", "Hindi", "English"]
+  languagesJson      String   @default("[]")
+  // JSON array: e.g. ["CAR","SUV","BUS"]
+  categoriesJson     String   @default("[]")
+  licenseType        String?  // LMV | LMV_TR | HMV | HPMV | AUTO_RICKSHAW
+  licenseNumber      String?
+  licenseImageUrl    String?
+  // PENDING | VERIFIED | REJECTED
+  licenseStatus      String   @default("PENDING")
+  // ACTIVE | INACTIVE | SUSPENDED
+  status             String   @default("ACTIVE")
+  // PENDING | VERIFIED | REJECTED
+  verificationStatus String   @default("PENDING")
+  rating             Float    @default(0)
+  ratingCount        Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  provider      Provider            @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  availabilities DriverAvailability[]
+
+  @@index([providerId, status])
+  @@index([userId])
+}
+
+// ── DRIVER AVAILABILITY ───────────────────────────────────────────────
+
+model DriverAvailability {
+  id        String   @id @default(cuid())
+  driverId  String
+  startAt   DateTime
+  endAt     DateTime
+  // AVAILABLE | BLOCKED | ON_DUTY | OFF_DUTY
+  status    String   @default("BLOCKED")
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@index([driverId, startAt, endAt])
+  @@index([driverId, status])
+}
+
+// ── DRIVER PROFILE (existing) ─────────────────────────────────────────
+// For providers whose type is DRIVER — the provider IS the driver.
+
+model DriverProfile {
+  id              String   @id @default(cuid())
+  providerId      String   @unique
+  experienceYears Int      @default(0)
+  licenseType     String?  // LMV | LMV_TR | HMV | HPMV | AUTO_RICKSHAW
+  licenseImageUrl String?
+  hasOwnVehicle   Boolean  @default(false)
+  languages       String   @default("[]") // JSON array
+  driveCategories String   @default("[]") // JSON array
+  createdAt       DateTime @default(now())
+
+  provider      Provider         @relation(fields: [providerId], references: [id])
+  yatraPackages YatraBusPackage[]
+}
+
+// ── PROVIDER SERVICE MODEL ────────────────────────────────────────────
+// Services offered by a provider (GARAGE, DRIVING_SCHOOL, CAR_WASH, etc.)
+// Separate from Vehicle/Asset model.
+
+model ProviderService {
+  id                 String   @id @default(cuid())
+  providerId         String
+  // GARAGE | DRIVING_SCHOOL | CAR_WASH | REPAIR_CENTER | EQUIPMENT_SERVICE | OTHER
+  serviceType        String
+  name               String
+  description        String?
+  locationId         String?
+  phone              String?
+  email              String?
+  lat                Float?
+  lng                Float?
+  address            String?
+  city               String?
+  state              String?
+  // ACTIVE | INACTIVE | PENDING_VERIFICATION | SUSPENDED
+  status             String   @default("PENDING_VERIFICATION")
+  // UNVERIFIED | PENDING | VERIFIED | REJECTED
+  verificationStatus String   @default("UNVERIFIED")
+  open24x7           Boolean  @default(false)
+  opensAt            String?  // "08:00"
+  closesAt           String?
+  imagesJson         String   @default("[]")
+  metaJson           String   @default("{}") // service-type-specific config
+  ratingAvg          Float    @default(0)
+  ratingCount        Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  provider     Provider           @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  serviceItems ProviderServiceItem[]
+
+  @@index([providerId, serviceType])
+  @@index([serviceType, status])
+}
+
+// ── PROVIDER SERVICE ITEMS ────────────────────────────────────────────
+// Individual offerings within a service (e.g., Oil Change ₹300 / 30 min under a Garage)
+
+model ProviderServiceItem {
+  id              String   @id @default(cuid())
+  serviceId       String
+  name            String
+  description     String?
+  price           Float
+  durationMinutes Int?
+  // ACTIVE | INACTIVE
+  status          String   @default("ACTIVE")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  service ProviderService @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@index([serviceId, status])
+}
+
+// ── GARAGE (legacy — preserved for backward compatibility) ────────────
+
+model GarageProfile {
+  id         String  @id @default(cuid())
+  providerId String  @unique
+  services   String  @default("[]")
+  open24x7   Boolean @default(false)
+  opensAt    String?
+  closesAt   String?
+  pickupDrop Boolean @default(false)
+
+  provider Provider @relation(fields: [providerId], references: [id])
+}
+
+// ── YATRA BUS ─────────────────────────────────────────────────────────
+
+model YatraBusPackage {
+  id            String    @id @default(cuid())
+  operatorId    String
+  vehicleId     String
+  driverId      String?
+  packageName   String
+  description   String
+  category      String    @default("TEMPLE_YATRA")
+  pricePerHead  Float
+  totalSeats    Int
+  bookedSeats   Int       @default(0)
+  departureDate DateTime
+  returnDate    DateTime?
+  durationDays  Int?
+  status        String    @default("DRAFT")
+  isPublished   Boolean   @default(false)
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  operator Provider          @relation(fields: [operatorId], references: [id])
+  vehicle  Vehicle           @relation(fields: [vehicleId], references: [id])
+  driver   DriverProfile?    @relation(fields: [driverId], references: [id])
+  stops    YatraTempleStop[]
+  seats    YatraSeat[]
+  bookings YatraBooking[]
+
+  @@index([status, departureDate])
+  @@index([operatorId])
+  @@index([vehicleId])
+}
+
+model YatraTempleStop {
+  id            String   @id @default(cuid())
+  packageId     String
+  order         Int
+  name          String
+  city          String?
+  state         String?
+  description   String?
+  arrivalTime   String?
+  departureTime String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  package YatraBusPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  @@unique([packageId, order])
+  @@index([packageId])
+}
+
+model YatraSeat {
+  id        String   @id @default(cuid())
+  packageId String
+  number    Int
+  status    String   @default("AVAILABLE")
+  bookingId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  package YatraBusPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  booking YatraBooking?   @relation(fields: [bookingId], references: [id])
+
+  @@unique([packageId, number])
+  @@index([packageId, status])
+}
+
+model YatraBooking {
+  id               String   @id @default(cuid())
+  packageId        String
+  customerId       String
+  operatorId       String
+  bookingReference String   @unique
+  seatNumbers      String   @default("[]")
+  passengerCount   Int
+  pricePerHead     Float
+  totalAmount      Float
+  paymentStatus    String   @default("UNPAID")
+  bookingStatus    String   @default("PENDING")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  package  YatraBusPackage @relation(fields: [packageId], references: [id])
+  customer User            @relation(fields: [customerId], references: [id])
+  operator Provider        @relation("YatraOperatorBookings", fields: [operatorId], references: [id])
+  seats    YatraSeat[]
+
+  @@index([packageId, bookingStatus])
+  @@index([customerId, createdAt])
+}
+
+// ── FARM EQUIPMENT ────────────────────────────────────────────────────
+
+model FarmEquipment {
+  id                  String   @id @default(cuid())
+  providerId          String
+  equipmentType       String
+  title               String
+  capacityAcresPerDay Float?
+  hp                  Int?
+  attachments         String   @default("[]")
+  status              String   @default("ACTIVE")
+  createdAt           DateTime @default(now())
+
+  provider Provider @relation(fields: [providerId], references: [id])
+
+  @@index([equipmentType, status])
+}
+
+// ── DRONE PROFILE ─────────────────────────────────────────────────────
+
+model DroneProfile {
+  id            String  @id @default(cuid())
+  providerId    String  @unique
+  dronesCount   Int     @default(1)
+  acresPerDay   Float   @default(20)
+  sprayTypes    String  @default("[]")
+  certificateNo String?
+
+  provider Provider @relation(fields: [providerId], references: [id])
+}
+
+// ── PRICING RULES ─────────────────────────────────────────────────────
+
+model PricingRule {
+  id                String  @id @default(cuid())
+  ownerProviderId   String
+  targetType        String
+  targetId          String?
+  category          String?
+  model             String
+  dailyRate         Float?
+  hourlyRate        Float?
+  perKm             Float?
+  perTrip           Float?
+  perAcre           Float?
+  minAcres          Float?
+  includedKmPerDay  Float?
+  extraPerKm        Float?
+  driverAllowanceDay Float?
+  acSurchargeDay    Float?
+  deposit           Float?
+  visitCharge       Float?
+  waitingChargePerHr Float?
+  travelCharge      Float?
+  minCharge         Float?
+  active            Boolean @default(true)
+  note              String?
+
+  owner Provider @relation(fields: [ownerProviderId], references: [id])
+
+  @@index([targetType, targetId])
+  @@index([ownerProviderId, active])
+}
+
+// ── SUBSCRIPTIONS ─────────────────────────────────────────────────────
+
+model SubscriptionPlan {
+  id             String   @id @default(cuid())
+  code           String   @unique
+  name           String
+  monthlyFee     Float    @default(0)
+  commissionRate Float
+  features       String   @default("[]")
+  active         Boolean  @default(true)
+
+  subscriptions ProviderSubscription[]
+}
+
+model ProviderSubscription {
+  id         String    @id @default(cuid())
+  providerId String    @unique
+  planId     String
+  startedAt  DateTime  @default(now())
+  expiresAt  DateTime?
+  status     String    @default("ACTIVE")
+
+  provider Provider         @relation(fields: [providerId], references: [id])
+  plan     SubscriptionPlan @relation(fields: [planId], references: [id])
+}
+
+// ── GAZETTEER ─────────────────────────────────────────────────────────
+
+model Location {
+  id       String  @id @default(cuid())
+  name     String
+  type     String
+  district String?
+  state    String?
+  lat      Float
+  lng      Float
+  aliases  String  @default("[]")
+  popular  Boolean @default(false)
+
+  @@index([name])
+}
+
+// ── BOOKING ───────────────────────────────────────────────────────────
+// Core transactional record. Price snapshot preserved at booking time.
+// Status transitions enforced server-side only.
+// PENDING → ADMIN_REVIEW → CONFIRMED → COMPLETED | CANCELLED | NO_SHOW | REJECTED
+
+model Booking {
+  id                 String    @id @default(cuid())
+  code               String    @unique
+  customerId         String
+  providerId         String
+  // VEHICLE_SELF_DRIVE | VEHICLE_WITH_DRIVER | DRIVER | GARAGE | MECHANIC_VISIT
+  // | TOWING | BATTERY | TYRE | FARM_EQUIPMENT | DRONE_SPRAYING | EMERGENCY
+  kind               String
+  listingKind        String
+  listingId          String
+  vehicleId          String?
+  // driverId — assigned driver for this booking
+  driverId           String?
+  // serviceId — linked service (garage, driving school, etc.)
+  serviceId          String?
+  listingTitle       String
+  providerName       String
+  // REQUESTED | PENDING_PROVIDER | ACCEPTED | REJECTED | CONFIRMED
+  // | EN_ROUTE | IN_PROGRESS | COMPLETED | CANCELLED | REFUNDED | DISPUTED | NO_SHOW
+  status             String    @default("REQUESTED")
+  // UNPAID | PENDING | PAID | REFUND_PENDING | REFUNDED | FAILED | AUTHORIZED
+  paymentStatus      String    @default("UNPAID")
+  scheduledFor       DateTime?
+  durationDays       Int?
+  durationHours      Float?
+  acres              Float?
+  estKm              Float?
+  withAc             Boolean?
+  locationText       String?
+  destLat            Float?
+  destLng            Float?
+  // Price snapshot — preserved at booking creation, never recalculated
+  priceBreakdownJson String    @default("[]")
+  baseAmount         Float     @default(0)
+  feesAmount         Float     @default(0)
+  commissionAmount   Float     @default(0)
+  totalAmount        Float     @default(0)
+  depositAmount      Float?
+  etaMin             Int?
+  distanceKm         Float?
+  cancelReason       String?
+  rejectionReason    String?
+  notes              String?
+  idempotencyKey     String    @unique
+  holdExpiresAt      DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  customer      User                   @relation(fields: [customerId], references: [id])
+  provider      Provider               @relation("ProviderBookings", fields: [providerId], references: [id])
+  payments      Payment[]
+  review        Review?
+  commissions   CommissionRecord[]
+  payout        Payout?
+  chatMessages  BookingChatMessage[]
+  // Direct participants for contact unlock after confirmation
+  participants  BookingChatParticipant[]
+
+  @@index([customerId, createdAt])
+  @@index([providerId, status])
+  @@index([status])
+  @@index([driverId])
+  @@index([vehicleId])
+  @@index([paymentStatus])
+}
+
+// ── BOOKING CHAT / MESSAGING ──────────────────────────────────────────
+// Messages are strictly linked to a booking.
+// Server must verify user is an authorized participant before read/write.
+
+model BookingChatMessage {
+  id         String   @id @default(cuid())
+  bookingId  String
+  senderId   String
+  // CUSTOMER | PROVIDER | ADMIN
+  senderRole String
+  text       String
+  readAt     DateTime?
+  createdAt  DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, createdAt])
+  @@index([senderId])
+}
+
+// Tracks who is authorized to participate in a booking chat
+// (unlocked after booking is CONFIRMED)
+
+model BookingChatParticipant {
+  id        String   @id @default(cuid())
+  bookingId String
+  userId    String
+  // CUSTOMER | PROVIDER | ADMIN
+  role      String
+  createdAt DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingId, userId])
+  @@index([bookingId])
+  @@index([userId])
+}
+
+// ── AI CONVERSATIONS (separate from booking chat) ─────────────────────
+
+model Conversation {
+  id          String   @id @default(cuid())
+  customerId  String?
+  sessionKey  String   @default("")
+  title       String?
+  pageContext String?
+  contextJson String   @default("{}")
+  status      String   @default("OPEN")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  customer User?     @relation(fields: [customerId], references: [id])
+  messages Message[]
+
+  @@index([sessionKey])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  idx            Int
+  role           String // user | assistant
+  text           String   @default("")
+  payloadJson    String?
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId, idx])
+}
+
+// ── PAYMENT ───────────────────────────────────────────────────────────
+// Customer-side payment. Separate from provider payout.
+// Never trust frontend payment success — always verify via webhook.
+// CREATED | PENDING | AUTHORIZED | SUCCESS | FAILED | REFUNDED | PARTIALLY_REFUNDED
+
+model Payment {
+  id               String    @id @default(cuid())
+  bookingId        String
+  // customerId — who paid
+  customerId       String?
+  amount           Float
+  currency         String    @default("INR")
+  // CREATED | PENDING | AUTHORIZED | SUCCESS | FAILED | REFUNDED | PARTIALLY_REFUNDED
+  status           String    @default("CREATED")
+  // simulated | razorpay | stripe | phonepe
+  mode             String    @default("simulated")
+  gatewayRef       String?
+  providerPaymentId String?
+  meta             String    @default("{}")
+  verifiedAt       DateTime?
+  refundedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId])
+  @@index([status])
+  @@index([customerId])
+}
+
+// ── PAYOUT ────────────────────────────────────────────────────────────
+// Provider-side earnings. Separate from customer payment.
+// Platform fee = customer pays - provider earns.
+
+model Payout {
+  id               String    @id @default(cuid())
+  providerId       String
+  // bookingId is optional to support manual/bulk payouts
+  bookingId        String?   @unique
+  grossAmount      Float
+  commissionAmount Float
+  netAmount        Float
+  currency         String    @default("INR")
+  // PENDING | PROCESSING | PAID | FAILED | CANCELLED
+  status           String    @default("PENDING")
+  providerPayoutId String?
+  processedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  booking  Booking?  @relation(fields: [bookingId], references: [id])
+  provider Provider  @relation(fields: [providerId], references: [id])
+
+  @@index([providerId, status])
+  @@index([status])
+}
+
+// ── COMMISSION RECORDS ────────────────────────────────────────────────
+
+model CommissionRecord {
+  id         String  @id @default(cuid())
+  bookingId  String
+  providerId String
+  rate       Float
+  amount     Float
+  basis      String  @default("BOOKING_COMMISSION")
+
+  booking  Booking  @relation(fields: [bookingId], references: [id])
+  provider Provider @relation(fields: [providerId], references: [id])
+
+  @@index([bookingId])
+  @@index([providerId])
+}
+
+// ── REVIEW ────────────────────────────────────────────────────────────
+// Only allow reviews for COMPLETED bookings (enforced server-side).
+
+model Review {
+  id         String   @id @default(cuid())
+  bookingId  String?  @unique
+  customerId String
+  providerId String
+  // driverId — optional if review targets a specific driver
+  driverId   String?
+  // serviceId — optional if review targets a specific service
+  serviceId  String?
+  rating     Int
+  comment    String?
+  // PUBLISHED | HIDDEN | FLAGGED
+  status     String   @default("PUBLISHED")
+  createdAt  DateTime @default(now())
+
+  customer User     @relation(fields: [customerId], references: [id])
+  provider Provider @relation(fields: [providerId], references: [id])
+  booking  Booking? @relation(fields: [bookingId], references: [id])
+
+  @@index([providerId, rating])
+  @@index([customerId])
+}
+
+// ── FAVORITES ─────────────────────────────────────────────────────────
+
+model Favorite {
+  id         String   @id @default(cuid())
+  customerId String
+  providerId String
+  label      String?
+  createdAt  DateTime @default(now())
+
+  customer User     @relation(fields: [customerId], references: [id])
+  provider Provider @relation(fields: [providerId], references: [id])
+
+  @@unique([customerId, providerId])
+}
+
+// ── NOTIFICATION ──────────────────────────────────────────────────────
+// Centralized — single table for customer, provider, and admin notifications.
+// Never create separate notification tables per role.
+
+model Notification {
+  id         String    @id @default(cuid())
+  // recipientUserId — who receives this notification
+  userId     String?
+  providerId String?
+  title      String
+  body       String    @default("")
+  // INFO | BOOKING | PAYMENT | DOCUMENT | SYSTEM | ALERT
+  kind       String    @default("INFO")
+  link       String?
+  // Optional context references
+  bookingId  String?
+  assetId    String?
+  isRead     Boolean   @default(false)
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  user     User?     @relation(fields: [userId], references: [id])
+  provider Provider? @relation("ProviderNotifications", fields: [providerId], references: [id])
+
+  @@index([userId, readAt])
+  @@index([userId, isRead])
+  @@index([providerId])
+}
+
+// ── AUDIT LOG ─────────────────────────────────────────────────────────
+// Record all important admin/provider mutations.
+// Never store passwords, tokens, or payment secrets here.
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorRole String
+  actorId   String?
+  action    String
+  entity    String
+  entityId  String?
+  detail    String   @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+// ── ANALYTICS EVENTS ──────────────────────────────────────────────────
+
+model AnalyticsEvent {
+  id             String   @id @default(cuid())
+  kind           String
+  props          String   @default("{}")
+  customerId     String?
+  conversationId String?
+  createdAt      DateTime @default(now())
+
+  @@index([kind])
+  @@index([createdAt])
+}
+
+// ── APP SETTINGS ──────────────────────────────────────────────────────
+
+model AppSetting {
+  id        String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+// ── SHARED RIDE / CARPOOLING ──────────────────────────────────────────
+
+model SharedRide {
+  id              String   @id @default(cuid())
+  driverName      String
+  driverPhone     String
+  driverRating    Float    @default(4.9)
+  driverTotalRides Int     @default(12)
+  verified        Boolean  @default(true)
+  fromLocation    String
+  toLocation      String
+  travelDate      String
+  departureTime   String
+  vehicleTitle    String
+  vehicleCategory String   @default("CAR")
+  totalSeats      Int      @default(4)
+  availableSeats  Int      @default(4)
+  pricePerSeat    Float
+  stopsJson       String   @default("[]")
+  preferencesJson String   @default("{}")
+  status          String   @default("ACTIVE")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  bookings SharedRideBooking[]
+
+  @@index([fromLocation, toLocation])
+  @@index([status])
+}
+
+model SharedRideBooking {
+  id             String   @id @default(cuid())
+  rideId         String
+  passengerName  String
+  passengerPhone String
+  passengerEmail String?
+  seatsBooked    Int      @default(1)
+  totalAmount    Float
+  status         String   @default("ACCEPTED")
+  message        String?
+  createdAt      DateTime @default(now())
+
+  ride SharedRide @relation(fields: [rideId], references: [id])
+
+  @@index([rideId])
+}
+
+// ── DRIVING SCHOOLS ───────────────────────────────────────────────────
+
+model DrivingSchool {
+  id                   String   @id @default(cuid())
+  ownerId              String
+  schoolName           String
+  ownerName            String
+  phone                String
+  email                String?
+  description          String?
+  establishedYear      Int?
+  businessRegistration String?
+  address              String
+  area                 String?
+  city                 String
+  state                String
+  pincode              String?
+  lat                  Float
+  lng                  Float
+  logoUrl              String?
+  coverImageUrl        String?
+  servicesJson         String   @default("[]")
+  status               String   @default("PENDING_VERIFICATION")
+  isActive             Boolean  @default(true)
+  ratingAvg            Float    @default(0)
+  ratingCount          Int      @default(0)
+  completedLessons     Int      @default(0)
+  totalStudents        Int      @default(0)
+  workingHoursJson     String   @default("{}")
+  pickupAreasJson      String   @default("[]")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  owner          User                  @relation(fields: [ownerId], references: [id])
+  courses        DrivingCourse[]
+  vehicles       TrainingVehicle[]
+  instructors    DrivingInstructor[]
+  bookings       DrivingBooking[]
+  documents      DrivingDocument[]
+  reviews        DrivingReview[]
+  galleries      DrivingGallery[]
+  availabilities DrivingAvailability[]
+
+  @@index([status, isActive])
+  @@index([city, state])
+  @@index([ownerId])
+}
+
+model DrivingCourse {
+  id                 String   @id @default(cuid())
+  schoolId           String
+  courseName         String
+  courseType         String
+  numLessons         Int
+  lessonDuration     Int      @default(30)
+  price              Float
+  description        String?
+  vehicleType        String?
+  transmission       String?
+  availableDaysJson  String   @default("[]")
+  availableTimesJson String   @default("[]")
+  pickupAvailable    Boolean  @default(false)
+  dropAvailable      Boolean  @default(false)
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  school   DrivingSchool   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  bookings DrivingBooking[]
+
+  @@index([schoolId, isActive])
+}
+
+model DrivingInstructor {
+  id                 String   @id @default(cuid())
+  schoolId           String
+  name               String
+  phone              String
+  email              String?
+  experienceYears    Int      @default(0)
+  languagesJson      String   @default("[]")
+  specializationJson String   @default("[]")
+  vehicleTypeJson    String   @default("[]")
+  photoUrl           String?
+  verificationStatus String   @default("PENDING")
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  school         DrivingSchool         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  bookings       DrivingBooking[]
+  lessons        DrivingLesson[]
+  reviews        DrivingReview[]
+  availabilities DrivingAvailability[]
+
+  @@index([schoolId, isActive])
+}
+
+model TrainingVehicle {
+  id                 String   @id @default(cuid())
+  schoolId           String
+  brand              String
+  model              String
+  vehicleType        String
+  transmission       String
+  year               Int
+  registrationNumber String
+  imageUrl           String?
+  safetyFeaturesJson String   @default("[]")
+  isDualControl      Boolean  @default(true)
+  hasAc              Boolean  @default(true)
+  status             String   @default("ACTIVE")
+  createdAt          DateTime @default(now())
+
+  school         DrivingSchool         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  bookings       DrivingBooking[]
+  lessons        DrivingLesson[]
+  availabilities DrivingAvailability[]
+
+  @@index([schoolId, status])
+}
+
+model DrivingBooking {
+  id             String    @id @default(cuid())
+  code           String    @unique
+  studentId      String
+  schoolId       String
+  courseId       String
+  instructorId   String?
+  vehicleId      String?
+  status         String    @default("PENDING")
+  paymentStatus  String    @default("UNPAID")
+  scheduledDate  DateTime?
+  scheduledTime  String?
+  pickupLocation String?
+  pickupLat      Float?
+  pickupLng      Float?
+  dropLocation   String?
+  dropLat        Float?
+  dropLng        Float?
+  baseAmount     Float     @default(0)
+  totalAmount    Float     @default(0)
+  cancelReason   String?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  student    User               @relation(fields: [studentId], references: [id])
+  school     DrivingSchool      @relation(fields: [schoolId], references: [id])
+  course     DrivingCourse      @relation(fields: [courseId], references: [id])
+  instructor DrivingInstructor? @relation(fields: [instructorId], references: [id])
+  vehicle    TrainingVehicle?   @relation(fields: [vehicleId], references: [id])
+  lesson     DrivingLesson?
+  payments   DrivingPayment[]
+  review     DrivingReview?
+  progress   DrivingProgress?
+
+  @@index([studentId, createdAt])
+  @@index([schoolId, status])
+  @@index([status])
+  @@index([courseId])
+}
+
+model DrivingLesson {
+  id                String    @id @default(cuid())
+  bookingId         String    @unique
+  instructorId      String
+  vehicleId         String
+  scheduledAt       DateTime
+  completedAt       DateTime?
+  skillsCoveredJson String    @default("[]")
+  instructorNotes   String?
+  status            String    @default("SCHEDULED")
+  createdAt         DateTime  @default(now())
+
+  booking    DrivingBooking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  instructor DrivingInstructor @relation(fields: [instructorId], references: [id])
+  vehicle    TrainingVehicle   @relation(fields: [vehicleId], references: [id])
+
+  @@index([instructorId, scheduledAt])
+  @@index([vehicleId, scheduledAt])
+}
+
+model DrivingPayment {
+  id         String    @id @default(cuid())
+  bookingId  String
+  amount     Float
+  status     String    @default("CREATED")
+  mode       String    @default("simulated")
+  gatewayRef String?
+  createdAt  DateTime  @default(now())
+
+  booking DrivingBooking @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId])
+}
+
+model DrivingDocument {
+  id              String   @id @default(cuid())
+  schoolId        String
+  documentType    String
+  documentUrl     String
+  status          String   @default("PENDING")
+  rejectionReason String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  school DrivingSchool @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, status])
+}
+
+model DrivingGallery {
+  id        String   @id @default(cuid())
+  schoolId  String
+  imageUrl  String
+  caption   String?
+  createdAt DateTime @default(now())
+
+  school DrivingSchool @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
+}
+
+model DrivingReview {
+  id               String   @id @default(cuid())
+  bookingId        String?  @unique
+  studentId        String
+  schoolId         String
+  instructorId     String?
+  rating           Int
+  comment          String?
+  instructorRating Int?
+  vehicleRating    Int?
+  teachingRating   Int?
+  createdAt        DateTime @default(now())
+
+  student    User               @relation(fields: [studentId], references: [id])
+  school     DrivingSchool      @relation(fields: [schoolId], references: [id])
+  instructor DrivingInstructor? @relation(fields: [instructorId], references: [id])
+  booking    DrivingBooking?    @relation(fields: [bookingId], references: [id])
+
+  @@index([schoolId, rating])
+  @@index([studentId])
+}
+
+model DrivingProgress {
+  id               String   @id @default(cuid())
+  bookingId        String   @unique
+  lessonsCompleted Int      @default(0)
+  totalLessons     Int
+  progressPercent  Float    @default(0)
+  skillsJson       String   @default("{}")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  booking DrivingBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+}
+
+model DrivingAvailability {
+  id           String   @id @default(cuid())
+  schoolId     String?
+  instructorId String?
+  vehicleId    String?
+  dayOfWeek    Int
+  startTime    String
+  endTime      String
+  maxSlots     Int      @default(5)
+  bookedSlots  Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  school     DrivingSchool?     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  instructor DrivingInstructor? @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  vehicle    TrainingVehicle?   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId, dayOfWeek])
+  @@index([instructorId, dayOfWeek])
+}

@@ -1,0 +1,17 @@
+node_modules
+.next
+dev.db
+prisma/dev.db
+.env
+.env.local
+.env.production
+scripts/*.ps1
+scripts/music.wav
+*.mp4
+npm-debug.log
+*.tgz
+.DS_Store
+coverage
+.nyc_output
+*.log
+!.gitkeep

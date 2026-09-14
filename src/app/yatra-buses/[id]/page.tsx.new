@@ -1,0 +1,110 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { Bus, CalendarDays, CheckCircle2, MapPin, Users, ShieldCheck, Star, Clock, ArrowLeft, Sparkles } from "lucide-react";
+import { prisma } from "@/lib/db";
+import { packageInclude, publicPackage } from "@/lib/services/yatraService";
+
+export default async function YatraDetails({ params }: { params: { id: string } }) {
+  const found = await prisma.yatraBusPackage.findFirst({ where: { id: params.id, status: "PUBLISHED", isPublished: true, isActive: true }, include: packageInclude });
+  if (!found || found.departureDate < new Date()) notFound();
+  const pkg = publicPackage(found);
+  const pctLeft = Math.round((pkg.availableSeats / pkg.totalSeats) * 100);
+  const isHouseful = pkg.availableSeats === 0;
+  return (
+    <div className="min-h-screen bg-paper">
+      <div className="relative overflow-hidden bg-ink text-white">
+        <img src="https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=1200&h=600&fit=crop&q=80" alt="" className="absolute inset-0 h-full w-full object-cover opacity-25" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-black/20" />
+        <div className="container-nw relative py-8">
+          <Link href="/yatra-buses" className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-sm font-semibold text-white/80 ring-1 ring-white/15 backdrop-blur hover:bg-white/15">
+            <ArrowLeft className="h-4 w-4" /> Back to Yatra Buses
+          </Link>
+          <div className="mt-6 max-w-3xl">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">
+              <Bus className="h-3.5 w-3.5" /> Temple Yatra • {pkg.category}
+            </span>
+            <h1 className="mt-3 font-display text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl md:text-5xl">{pkg.packageName}</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/70 sm:text-base">{pkg.description}</p>
+            <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-white/80 ring-1 ring-white/10"><CalendarDays className="h-3.5 w-3.5" />{pkg.departureDate} {pkg.returnDate ? `→ ${pkg.returnDate}` : ""}</span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-white/80 ring-1 ring-white/10"><Bus className="h-3.5 w-3.5" />{pkg.vehicle.title} • {pkg.vehicle.seats} seats</span>
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${isHouseful ? "bg-red-500 text-white" : "bg-emerald-500 text-white"}`}><Users className="h-3.5 w-3.5" />{pkg.availableSeats}/{pkg.totalSeats} left</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="container-nw -mt-6 pb-16">
+        <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+          <div className="space-y-6">
+            <div className="card p-6">
+              <h2 className="flex items-center gap-2 font-display text-lg font-bold"><Sparkles className="h-4 w-4 text-brand-500" /> Temple route — {pkg.stops.length} stops</h2>
+              <p className="mt-1 text-xs text-ink-faint">In visiting order — darshan sequence as per itinerary.</p>
+              <ol className="mt-5 space-y-0">
+                {pkg.stops.map((stop: any) => (
+                  <li key={stop.id} className="group relative flex gap-4 pb-6 last:pb-0">
+                    <span className="absolute left-4 top-8 h-full w-px bg-ink/10 group-last:hidden" aria-hidden />
+                    <span className="relative z-10 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand-500 text-xs font-bold text-white shadow-sm">{String(stop.order).padStart(2, "0")}</span>
+                    <div className="min-w-0 flex-1 rounded-xl border border-ink/5 bg-paper p-3 transition group-hover:border-brand-200 group-hover:bg-white">
+                      <p className="font-semibold text-ink">{stop.name}{stop.city ? `, ${stop.city}` : ""}</p>
+                      {stop.description && <p className="mt-1 text-xs leading-relaxed text-ink-mute">{stop.description}</p>}
+                      {(stop.arrivalTime || stop.departureTime) && <p className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-ink-faint"><Clock className="h-3 w-3" />{stop.arrivalTime || ""} {stop.departureTime ? `→ ${stop.departureTime}` : ""}</p>}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            <div className="card p-6">
+              <h2 className="font-display text-lg font-bold">What’s included</h2>
+              <ul className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+                <li className="flex items-center gap-2 text-ink-soft"><CheckCircle2 className="h-4 w-4 text-emerald-600" /> Comfortable bus ({pkg.vehicle.seats} seats{pkg.vehicle.ac ? ", AC" : ""})</li>
+                <li className="flex items-center gap-2 text-ink-soft"><CheckCircle2 className="h-4 w-4 text-emerald-600" /> Experienced driver</li>
+                <li className="flex items-center gap-2 text-ink-soft"><CheckCircle2 className="h-4 w-4 text-emerald-600" /> Guided temple visits</li>
+                <li className="flex items-center gap-2 text-ink-soft"><CheckCircle2 className="h-4 w-4 text-emerald-600" /> Live seat count</li>
+              </ul>
+            </div>
+
+            <div className="card flex items-center gap-4 p-4">
+              <span className="grid h-12 w-12 place-items-center rounded-2xl bg-ink text-white"><ShieldCheck className="h-5 w-5" /></span>
+              <div className="min-w-0 flex-1">
+                <p className="font-bold leading-tight">{pkg.operator.name}</p>
+                <p className="text-xs text-ink-mute">{pkg.operator.verified ? "Verified operator" : "Operator"} • {pkg.operator.rating ? `${pkg.operator.rating.toFixed(1)} rating` : "New operator"}</p>
+              </div>
+              {pkg.operator.verified && <Star className="h-5 w-5 fill-amber-400 text-amber-400" />}
+            </div>
+          </div>
+
+          <aside className="lg:sticky lg:top-24 lg:self-start">
+            <div className="card p-6 shadow-lift">
+              <p className="text-xs font-bold uppercase tracking-wide text-ink-faint">Price per person</p>
+              <p className="mt-1 font-display text-4xl font-extrabold tracking-tight">₹{pkg.pricePerHead.toLocaleString("en-IN")}</p>
+              <div className="mt-3">
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span className={isHouseful ? "text-red-600" : pctLeft < 20 ? "text-amber-700" : "text-emerald-700"}>{isHouseful ? "Sold out" : `${pkg.availableSeats} seats left`}</span>
+                  <span className="text-ink-faint">{pkg.availableSeats}/{pkg.totalSeats}</span>
+                </div>
+                <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-paper-deep">
+                  <div className={`h-full rounded-full ${isHouseful ? "bg-red-500" : pctLeft < 20 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${Math.max(4, pctLeft)}%` }} />
+                </div>
+              </div>
+              <Link href={isHouseful ? "#" : `/yatra-buses/booking/${pkg.id}`} aria-disabled={isHouseful} className={`btn-primary mt-6 flex h-12 w-full items-center justify-center gap-2 text-base font-bold ${isHouseful ? "pointer-events-none bg-paper text-ink-faint" : ""}`}>
+                {isHouseful ? "Houseful" : "Book now"} {!isHouseful && <ArrowLeft className="h-4 w-4 rotate-180" />}
+              </Link>
+              <p className="mt-2 text-center text-xs text-ink-faint">No advance needed • Free cancellation before confirmation</p>
+              <div className="mt-5 space-y-2 border-t border-ink/5 pt-4 text-xs">
+                <p className="flex items-center gap-2 text-ink-mute"><MapPin className="h-3.5 w-3.5 text-brand-600" /> Boarding details shared after booking</p>
+                <p className="flex items-center gap-2 text-ink-mute"><ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> Booking protection by Near Wheels</p>
+              </div>
+            </div>
+            <p className="mt-3 text-center text-xs text-ink-faint">Need help? <a href="/emergency" className="font-semibold text-brand-700 hover:underline">Contact support</a></p>
+          </aside>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Info({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return <div className="rounded-xl bg-paper p-3"><div className="text-brand-600">{icon}</div><div className="mt-2 text-[11px] font-bold uppercase tracking-wider text-ink-faint">{label}</div><div className="mt-1 text-sm font-semibold text-ink">{value}</div></div>;
+}

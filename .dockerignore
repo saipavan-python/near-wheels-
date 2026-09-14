@@ -1,0 +1,10 @@
+node_modules
+.next
+dev.db
+prisma/dev.db
+.env
+.env.local
+scripts/*.ps1
+scripts/music.wav
+*.mp4
+npm-debug.log

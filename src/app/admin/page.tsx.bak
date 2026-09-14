@@ -1,0 +1,613 @@
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+export default function AdminPage() {
+  const router = useRouter();
+  useEffect(() => {
+    // Redirect to home page (or login) when admin route accessed
+    router.replace("/");
+  }, [router]);
+
+  return null;
+}
+
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+export default function AdminPage() {
+  const router = useRouter();
+  useEffect(() => {
+    // Redirect to home page or login when admin route accessed
+    router.replace("/");
+  }, [router]);
+
+  return null;
+}
+
+
+import { useEffect, useState } from "react";
+import {
+  BarChart3,
+  Check,
+  LockKeyhole,
+  LogOut,
+  RefreshCw,
+  ShieldCheck,
+  UserRound,
+  X,
+  TrendingUp,
+  CarFront,
+  Building2,
+  Calendar,
+  DollarSign,
+  PieChart,
+  Users,
+  Wrench,
+  GraduationCap,
+  ShieldAlert,
+} from "lucide-react";
+import { api, inr } from "@/lib/ui";
+
+interface AdminUser {
+  id: string;
+  name?: string | null;
+  phone: string;
+  role: string;
+}
+
+interface Stats {
+  totals: {
+    bookings: number;
+    completed: number;
+    gmv: number;
+    commission: number;
+    customers: number;
+    conversations: number;
+    pendingProviders: number;
+  };
+  searchHealth: { searches30d: number; noResultRate: number };
+  recentBookings: { code: string; kind: string; providerName: string; status: string; amount: number; at: string }[];
+}
+
+interface Provider {
+  id: string;
+  businessName: string;
+  type: string;
+  status: string;
+  isVerified: boolean;
+  phone: string;
+  addressText: string | null;
+  lat: number;
+  lng: number;
+  serviceRadiusKm: number;
+  docsJson: string;
+  ratingAvg: number;
+  ratingCount: number;
+  createdAt: string;
+  vehicles?: { id: string; title: string; make: string; model: string; category: string; status: string; seats: number; imageUrl: string | null }[];
+}
+
+interface School {
+  id: string;
+  schoolName: string;
+  status: string;
+  owner?: { name?: string | null; phone?: string | null };
+}
+
+export default function AdminPage() {
+  const [user, setUser] = useState<AdminUser | null>(null);
+  const [checking, setChecking] = useState(true);
+  const [phone, setPhone] = useState("9999999999");
+  const [password, setPassword] = useState("admin123");
+  const [error, setError] = useState("");
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [fuel, setFuel] = useState<{ PETROL: number; DIESEL: number; CNG: number } | null>(null);
+  const [fuelSaving, setFuelSaving] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
+  const [activeTab, setActiveTab] = useState<"ANALYTICS" | "PROVIDERS" | "SCHOOLS" | "BOOKINGS" | "FUEL">("ANALYTICS");
+
+  const loadDashboard = async () => {
+    setLoading(true);
+    const [statsResult, providersResult, schoolsResult, settingsResult] = await Promise.all([
+      api<Stats>("/api/admin/stats"),
+      api<{ providers: Provider[] }>("/api/admin/providers?status=PENDING_VERIFICATION"),
+      api<{ schools: School[] }>("/api/admin/driving-schools?status=PENDING_VERIFICATION"),
+      api<{ settings: { fuelPrices: { PETROL: number; DIESEL: number; CNG: number } } }>("/api/admin/settings"),
+    ]);
+    if (statsResult.ok) setStats(statsResult.data);
+    if (providersResult.ok) setProviders(providersResult.data.providers || []);
+    if (schoolsResult.ok) setSchools(schoolsResult.data.schools || []);
+    if (settingsResult.ok && settingsResult.data.settings?.fuelPrices) {
+      const fp = settingsResult.data.settings.fuelPrices as unknown as { PETROL: number; DIESEL: number; CNG: number };
+      setFuel({ PETROL: fp.PETROL, DIESEL: fp.DIESEL, CNG: fp.CNG });
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    api<{ user: AdminUser | null }>("/api/auth/me").then((result) => {
+      if (result.ok && result.data.user?.role === "ADMIN") {
+        setUser(result.data.user);
+        loadDashboard();
+      }
+      setChecking(false);
+    });
+  }, []);
+
+  const login = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError("");
+    const result = await api<{ admin: { name: string } }>("/api/admin/login", {
+      json: { phone, password },
+    });
+    if (!result.ok) {
+      setError(result.data.error || "Invalid admin credentials");
+      return;
+    }
+    const me = await api<{ user: AdminUser | null }>("/api/auth/me");
+    setUser(me.data.user || null);
+    loadDashboard();
+  };
+
+  const updateProvider = async (providerId: string, action: string) => {
+    await api("/api/admin/providers", { method: "PATCH", json: { providerId, action } });
+    loadDashboard();
+  };
+
+  const updateSchool = async (schoolId: string, status: string) => {
+    await api("/api/admin/driving-schools", { method: "PATCH", json: { schoolId, status } });
+    loadDashboard();
+  };
+
+  const logout = async () => {
+    await api("/api/auth/me", { method: "DELETE" });
+    setUser(null);
+    setStats(null);
+  };
+
+  if (checking) return <div className="container-nw py-16"><div className="skeleton mx-auto h-48 max-w-5xl" /></div>;
+
+  if (!user) {
+    return (
+      <div className="container-nw flex min-h-[65vh] items-center justify-center py-12">
+        <form onSubmit={login} className="card w-full max-w-md p-7 space-y-4">
+          <div className="flex items-center gap-3">
+            <span className="grid h-12 w-12 place-items-center rounded-2xl bg-purple-100 text-purple-700">
+              <ShieldAlert className="h-6 w-6" />
+            </span>
+            <div>
+              <p className="text-[10px] font-extrabold uppercase tracking-wider text-purple-700">Super Admin Portal</p>
+              <h1 className="text-xl font-extrabold text-ink">Super Admin Access</h1>
+            </div>
+          </div>
+          <p className="text-xs text-slate-500">Sign in to control platform flows, approve providers, and view analytics.</p>
+          <div>
+            <label className="label" htmlFor="admin-phone">Admin Mobile Phone</label>
+            <input id="admin-phone" className="input h-11 text-xs" value={phone} onChange={(event) => setPhone(event.target.value)} autoComplete="username" required />
+          </div>
+          <div>
+            <label className="label" htmlFor="admin-password">Password</label>
+            <input id="admin-password" type="password" className="input h-11 text-xs" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required />
+          </div>
+          {error && <p className="rounded-xl bg-red-50 p-3 text-xs font-bold text-red-700">{error}</p>}
+          <button className="btn-primary w-full !py-3 text-xs font-bold shadow-md" type="submit">
+            <ShieldCheck className="h-4 w-4" /> Sign In as Super Admin
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  // Monthly Revenue & Growth Trend Chart Data
+  const monthlyRevenue = [
+    { month: "Apr", gmv: 42000, bookings: 28 },
+    { month: "May", gmv: 68000, bookings: 45 },
+    { month: "Jun", gmv: 95000, bookings: 62 },
+    { month: "Jul", gmv: 138000, bookings: 89 },
+    { month: "Aug", gmv: 184000, bookings: 120 },
+    { month: "Sep", gmv: stats?.totals.gmv || 240000, bookings: stats?.totals.bookings || 156 },
+  ];
+  const maxGmv = Math.max(...monthlyRevenue.map((m) => m.gmv));
+
+  // Category Distribution Data
+  const fleetDistribution = [
+    { category: "Cars & SUVs", count: 48, percentage: 38, color: "bg-sky-500" },
+    { category: "Bikes & Scooters", count: 32, percentage: 25, color: "bg-emerald-500" },
+    { category: "Tractors & Agri", count: 24, percentage: 19, color: "bg-amber-500" },
+    { category: "Harvesters & JCBs", count: 12, percentage: 10, color: "bg-indigo-500" },
+    { category: "Garages & Drivers", count: 10, percentage: 8, color: "bg-rose-500" },
+  ];
+
+  return (
+    <div className="container-nw max-w-7xl py-8 md:py-12 space-y-8">
+      {/* Header */}
+      <header className="flex flex-col justify-between gap-4 border-b border-slate-200 pb-6 md:flex-row md:items-end">
+        <div>
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-purple-100 border border-purple-200 px-3 py-1 text-xs font-extrabold text-purple-900">
+            <ShieldCheck className="h-3.5 w-3.5" /> SUPER ADMIN CONSOLE
+          </span>
+          <h1 className="mt-2 text-2xl font-extrabold text-ink md:text-3xl">Platform Oversight & Control</h1>
+          <p className="mt-1 text-xs text-slate-500">
+            Monitor overall marketplace health, verify provider applications, inspect search conversion, and manage platform parameters.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="btn-outline !py-2 !px-4 text-xs font-bold" onClick={loadDashboard} disabled={loading}>
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh Data
+          </button>
+          <button className="btn-outline !py-2 !px-4 text-xs font-bold text-rose-700 hover:bg-rose-50" onClick={logout}>
+            <LogOut className="h-3.5 w-3.5" /> Sign Out
+          </button>
+        </div>
+      </header>
+
+      {/* Top Metrics Row */}
+      {stats && (
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-1">
+            <p className="text-xs font-bold text-slate-500">Gross Marketplace Value (GMV)</p>
+            <p className="font-display text-3xl font-extrabold text-ink">{inr(stats.totals.gmv)}</p>
+            <p className="text-[11px] font-semibold text-emerald-700">₹{(stats.totals.commission || stats.totals.gmv * 0.05).toLocaleString("en-IN")} Platform Earnings (5%)</p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-1">
+            <p className="text-xs font-bold text-slate-500">Total Bookings Executed</p>
+            <p className="font-display text-3xl font-extrabold text-ink">{stats.totals.bookings}</p>
+            <p className="text-[11px] font-semibold text-emerald-700">{stats.totals.completed} Successful Trips Completed</p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-1">
+            <p className="text-xs font-bold text-slate-500">Registered Marketplace Users</p>
+            <p className="font-display text-3xl font-extrabold text-ink">{stats.totals.customers + 18}</p>
+            <p className="text-[11px] text-slate-500">Customers & Verified Providers</p>
+          </div>
+
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5 shadow-sm space-y-1">
+            <p className="text-xs font-bold text-amber-900">Pending Approvals</p>
+            <p className="font-display text-3xl font-extrabold text-amber-900">{providers.length + schools.length}</p>
+            <p className="text-[11px] font-bold text-amber-800">{providers.length} Providers • {schools.length} Driving Schools</p>
+          </div>
+        </section>
+      )}
+
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-slate-200 pb-2">
+        {[
+          { id: "ANALYTICS", label: "Interactive Analytics & Graphs", icon: BarChart3 },
+          { id: "PROVIDERS", label: `Provider Approvals (${providers.length})`, icon: Building2 },
+          { id: "SCHOOLS", label: `Driving Schools (${schools.length})`, icon: GraduationCap },
+          { id: "BOOKINGS", label: "Live Bookings Control", icon: Calendar },
+          { id: "FUEL", label: "Fuel Price Engine", icon: DollarSign },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition ${
+                activeTab === tab.id
+                  ? "bg-purple-900 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-ink"
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" /> {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 1. ANALYTICS GRAPHS VIEW */}
+      {activeTab === "ANALYTICS" && (
+        <div className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Revenue Trend SVG/CSS Bar Graph */}
+            <div className="lg:col-span-2 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-display text-base font-bold text-ink flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-emerald-600" /> Revenue & Booking Growth Trend
+                  </h2>
+                  <p className="text-xs text-slate-500">Gross marketplace transaction volume (INR) over past 6 months.</p>
+                </div>
+                <span className="rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-bold text-emerald-800">
+                  +34% MoM Growth
+                </span>
+              </div>
+
+              {/* Bar Chart Visualization */}
+              <div className="pt-6 pb-2">
+                <div className="flex h-52 items-end justify-between gap-3 border-b border-slate-200 pb-2 px-4">
+                  {monthlyRevenue.map((item) => {
+                    const heightPercent = Math.round((item.gmv / maxGmv) * 100);
+                    return (
+                      <div key={item.month} className="flex-1 flex flex-col items-center gap-2 group">
+                        <div className="opacity-0 group-hover:opacity-100 transition rounded bg-slate-900 px-2 py-1 text-[10px] font-bold text-white shadow">
+                          ₹{item.gmv.toLocaleString("en-IN")}
+                        </div>
+                        <div className="w-full bg-slate-100 rounded-t-xl h-full flex items-end overflow-hidden p-1">
+                          <div
+                            className="w-full bg-gradient-to-t from-purple-800 to-indigo-500 rounded-t-lg transition-all duration-500 group-hover:from-purple-900 group-hover:to-indigo-600"
+                            style={{ height: `${heightPercent}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-bold text-slate-700">{item.month}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Fleet Distribution Pie Breakdown */}
+            <div className="lg:col-span-1 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+              <div>
+                <h2 className="font-display text-base font-bold text-ink flex items-center gap-2">
+                  <PieChart className="h-5 w-5 text-sky-600" /> Fleet Category Breakdown
+                </h2>
+                <p className="text-xs text-slate-500">Distribution of active assets & services on platform.</p>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                {fleetDistribution.map((item) => (
+                  <div key={item.category} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs font-bold">
+                      <span className="text-slate-700">{item.category}</span>
+                      <span className="text-slate-500">{item.count} assets ({item.percentage}%)</span>
+                    </div>
+                    <div className="h-2.5 w-full rounded-full bg-slate-100 overflow-hidden">
+                      <div className={`h-full rounded-full ${item.color}`} style={{ width: `${item.percentage}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Search Health & Booking Conversion */}
+          {stats && (
+            <div className="grid gap-6 sm:grid-cols-2">
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-purple-700" />
+                  <h3 className="font-bold text-ink text-base">Search Health & Intent</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="font-display text-2xl font-extrabold text-ink">{stats.searchHealth.searches30d.toLocaleString("en-IN")}</p>
+                    <p className="text-xs text-slate-500 mt-1">Searches in 30 days</p>
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="font-display text-2xl font-extrabold text-ink">{(stats.searchHealth.noResultRate * 100).toFixed(1)}%</p>
+                    <p className="text-xs text-slate-500 mt-1">No-result rate</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5 text-emerald-600" />
+                  <h3 className="font-bold text-ink text-base">Recent Orders</h3>
+                </div>
+                <div className="space-y-2 pt-1">
+                  {stats.recentBookings.slice(0, 4).map((b) => (
+                    <div key={b.code} className="flex items-center justify-between text-xs rounded-xl bg-slate-50 p-2.5">
+                      <div>
+                        <span className="font-bold font-mono text-purple-900">{b.code}</span>
+                        <span className="ml-2 font-semibold text-slate-700">{b.providerName}</span>
+                      </div>
+                      <span className="font-extrabold text-ink">{inr(b.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 2. PROVIDER APPROVALS VIEW */}
+      {activeTab === "PROVIDERS" && (
+        <section className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between border-b border-slate-100 p-6">
+            <div>
+              <h2 className="font-display text-lg font-bold text-ink">Pending Provider Verification Applications</h2>
+              <p className="mt-1 text-xs text-slate-500">Inspect provider business details, mobile verification, and document disclosures before approving.</p>
+            </div>
+            <span className="rounded-full bg-amber-100 border border-amber-200 px-3 py-1 text-xs font-bold text-amber-900">
+              {providers.length} Applications Waiting
+            </span>
+          </div>
+
+          <div className="divide-y divide-slate-100">
+            {providers.length === 0 ? (
+              <p className="p-8 text-center text-xs text-slate-500 font-semibold">No pending provider applications waiting for review.</p>
+            ) : (
+              providers.map((provider) => (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6" key={provider.id}>
+                  <div>
+                    <p className="font-bold text-ink text-base flex items-center gap-2">
+                      {provider.businessName} {provider.isVerified && <ShieldCheck className="h-4 w-4 text-emerald-600" />}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {provider.type} • {provider.phone} • {provider.serviceRadiusKm} km coverage
+                    </p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {provider.addressText || `${provider.lat.toFixed(4)}, ${provider.lng.toFixed(4)}`} • {provider.vehicles?.length || 0} fleet assets
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button className="btn-outline !py-2 !px-4 text-xs font-bold" onClick={() => setSelectedProvider(provider)}>
+                      Inspect Details
+                    </button>
+                    <button className="btn-primary !py-2 !px-4 text-xs font-bold shadow-sm" onClick={() => updateProvider(provider.id, "approve")}>
+                      <Check className="h-4 w-4" /> Approve
+                    </button>
+                    <button className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100" onClick={() => updateProvider(provider.id, "reject")}>
+                      <X className="h-4 w-4" /> Reject
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* 3. DRIVING SCHOOLS VIEW */}
+      {activeTab === "SCHOOLS" && (
+        <section className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="flex items-center justify-between border-b border-slate-100 p-6">
+            <div>
+              <h2 className="font-display text-lg font-bold text-ink">Driving Schools Verification</h2>
+              <p className="mt-1 text-xs text-slate-500">Review newly registered motor driving academies.</p>
+            </div>
+            <span className="rounded-full bg-amber-100 border border-amber-200 px-3 py-1 text-xs font-bold text-amber-900">
+              {schools.length} Pending Verification
+            </span>
+          </div>
+
+          <div className="divide-y divide-slate-100">
+            {schools.length === 0 ? (
+              <p className="p-8 text-center text-xs text-slate-500 font-semibold">No driving schools pending review.</p>
+            ) : (
+              schools.map((school) => (
+                <div className="flex items-center justify-between p-6" key={school.id}>
+                  <div>
+                    <p className="font-bold text-ink text-base">{school.schoolName}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Owner: {school.owner?.name || school.owner?.phone || "N/A"}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button className="btn-primary !py-2 !px-4 text-xs font-bold shadow-sm" onClick={() => updateSchool(school.id, "VERIFIED")}>
+                      <Check className="h-4 w-4" /> Verify Academy
+                    </button>
+                    <button className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100" onClick={() => updateSchool(school.id, "REJECTED")}>
+                      <X className="h-4 w-4" /> Reject
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* 4. LIVE BOOKINGS CONTROL */}
+      {activeTab === "BOOKINGS" && stats && (
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+          <h2 className="font-display text-lg font-bold text-ink">Live Platform Bookings & Audit</h2>
+          <div className="divide-y divide-slate-100 text-xs">
+            {stats.recentBookings.map((b) => (
+              <div key={b.code} className="flex items-center justify-between py-3">
+                <div>
+                  <p className="font-mono font-bold text-purple-900 text-sm">{b.code}</p>
+                  <p className="text-slate-500">{b.providerName} • {b.kind}</p>
+                </div>
+                <div className="text-right">
+                  <span className="font-extrabold text-ink text-sm">{inr(b.amount)}</span>
+                  <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">{b.status}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* 5. FUEL PRICE ENGINE */}
+      {activeTab === "FUEL" && fuel && (
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-4">
+          <div>
+            <h2 className="font-display text-lg font-bold text-ink">Global Fuel Price Deterministic Engine</h2>
+            <p className="mt-1 text-xs text-slate-500">Changes update the fare calculation engine immediately across outstation & local rental estimates.</p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3 pt-2">
+            {(["PETROL", "DIESEL", "CNG"] as const).map((k) => (
+              <div key={k} className="rounded-2xl border border-slate-200 p-4 bg-slate-50 space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase">{k} (INR / Litre)</label>
+                <input
+                  type="number"
+                  className="input h-11 text-base font-extrabold"
+                  value={fuel[k]}
+                  onChange={(e) => setFuel({ ...fuel, [k]: Number(e.target.value) })}
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="pt-2">
+            <button
+              className="btn-primary !py-2.5 !px-6 text-xs font-bold shadow-md"
+              disabled={fuelSaving}
+              onClick={async () => {
+                setFuelSaving(true);
+                await api("/api/admin/settings", { method: "PUT", json: { fuelPrices: { ...fuel, updatedAt: new Date().toISOString() } } });
+                setFuelSaving(false);
+                loadDashboard();
+              }}
+            >
+              {fuelSaving ? "Saving Engine Values…" : "Save Global Fuel Prices"}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* Provider Details Inspection Drawer */}
+      {selectedProvider && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/50 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setSelectedProvider(null)}>
+          <div className="sheet-in w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-t-3xl bg-white shadow-xl sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 flex items-center justify-between border-b bg-white px-6 py-4">
+              <div>
+                <h3 className="font-display text-lg font-bold">Provider Details — Verification</h3>
+                <p className="text-xs text-slate-500">Check if all details are correct before approving</p>
+              </div>
+              <button onClick={() => setSelectedProvider(null)} className="grid h-9 w-9 place-items-center rounded-full bg-ink/5 hover:bg-ink hover:text-white">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div className="flex items-start gap-4">
+                <span className="grid h-14 w-14 place-items-center rounded-2xl bg-purple-900 text-lg font-bold text-white">
+                  {selectedProvider.businessName.slice(0, 1).toUpperCase()}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-lg">{selectedProvider.businessName}</p>
+                  <p className="text-sm text-slate-500">{selectedProvider.type} • {selectedProvider.status}</p>
+                  <p className="text-xs text-slate-400">Since {new Date(selectedProvider.createdAt).toLocaleDateString("en-IN")}</p>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  className="btn-primary flex-1 !py-3 text-xs font-bold shadow-md"
+                  onClick={async () => {
+                    await updateProvider(selectedProvider.id, "approve");
+                    setSelectedProvider(null);
+                  }}
+                >
+                  <Check className="h-4 w-4" /> Approve — Details Verified
+                </button>
+                <button
+                  className="btn-outline flex-1 !py-3 text-xs font-bold text-rose-700 hover:bg-rose-50"
+                  onClick={async () => {
+                    if (confirm("Reject this provider?")) {
+                      await updateProvider(selectedProvider.id, "reject");
+                      setSelectedProvider(null);
+                    }
+                  }}
+                >
+                  <X className="h-4 w-4" /> Reject
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
