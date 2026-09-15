@@ -50,6 +50,8 @@ model OtpCode {
   createdAt DateTime @default(now())
 
   @@index([phone])
+  @@index([phone, consumed])
+  @@index([createdAt])
 }
 
 model Provider {
@@ -577,6 +579,7 @@ model Booking {
   @@index([vehicleId])
   @@index([paymentStatus])
   @@index([listingKind, listingId, status, scheduledFor])
+  @@index([status, holdExpiresAt])
 }
 
 model BookingChatMessage {
@@ -656,6 +659,7 @@ model Payment {
   @@index([bookingId])
   @@index([status])
   @@index([customerId])
+  @@index([gatewayRef])
 }
 
 model Payout {
@@ -859,28 +863,74 @@ model SharedRide {
   preferencesJson  String              @default("{}")
   status           String              @default("ACTIVE")
   createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
-  bookings         SharedRideBooking[]
+   updatedAt        DateTime            @updatedAt
+   bookings         SharedRideBooking[]
 
-  @@index([fromLocation, toLocation])
-  @@index([status])
-  @@index([status, createdAt])
+    @@index([fromLocation, toLocation])
+   @@index([status])
+   @@index([status, createdAt])
 }
 
 model SharedRideBooking {
-  id             String     @id @default(cuid())
+  id             String      @id @default(cuid())
   rideId         String
   passengerName  String
   passengerPhone String
   passengerEmail String?
-  seatsBooked    Int        @default(1)
+  seatsBooked    Int         @default(1)
   totalAmount    Float
-  status         String     @default("ACCEPTED")
+  platformFee    Float      @default(0)
+  paymentStatus  String      @default("UNPAID")
+  status         String      @default("ACCEPTED")
   message        String?
-  createdAt      DateTime   @default(now())
-  ride           SharedRide @relation(fields: [rideId], references: [id])
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime?   @updatedAt
+  ride           SharedRide  @relation(fields: [rideId], references: [id])
+  payments       ShareRidePayment[]
+  payouts        ShareRidePayout[]
 
   @@index([rideId])
+}
+
+// Payment collected from the passenger for a share-ride seat booking. Mirrors Payment.
+model ShareRidePayment {
+  id                String    @id @default(cuid())
+  bookingId         String
+  customerId        String?
+  amount            Float
+  currency          String    @default("INR")
+  status            String    @default("PENDING")
+  mode              String    @default("simulated")
+  gatewayRef        String?
+  providerPaymentId String?
+  verifiedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  booking           SharedRideBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([gatewayRef])
+}
+
+// Payout owed to the driver after a share ride is paid. Mirrors Payout (no Provider FK — casual driver).
+model ShareRidePayout {
+  id               String   @id @default(cuid())
+  bookingId        String
+  driverName       String
+  driverPhone      String
+  grossAmount      Float
+  commissionAmount Float
+  netAmount        Float
+  currency         String   @default("INR")
+  status           String   @default("PENDING")
+  providerPayoutId String?
+  processedAt      DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  booking          SharedRideBooking @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId])
+  @@index([status])
 }
 
 model DrivingSchool {

@@ -82,8 +82,13 @@ export async function createBooking(input: CreateBookingInput) {
     etaMin = etaMinutes(distanceKm);
   }
 
-  // Transactional double-check to prevent race
-  const booking = await prisma.$transaction(async (tx) => {
+  // Transactional double-check to prevent race (spec §93).
+  // The FOR UPDATE lock on the provider row serializes concurrent booking
+  // attempts for the same provider: with READ COMMITTED alone, two requests
+  // could both pass the conflict re-check and double-book the listing.
+  const booking = await prisma.$transaction(
+    async (tx) => {
+    await tx.$queryRaw`SELECT id FROM "Provider" WHERE id = ${listing.providerId} FOR UPDATE`;
     // Re-check within transaction
     if (input.listingKind === "VEHICLE" && scheduledFor) {
       const conflict = await tx.booking.count({

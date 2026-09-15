@@ -183,12 +183,12 @@ export default function FindRidePage() {
                           <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" /> {r.driverRating}
                         </span>
                         <span>· {r.driverTotalRides} rides completed</span>
-                        <span>· 🚗 {r.vehicleTitle}</span>
+                        <span>· {r.vehicleTitle}</span>
                       </p>
 
                       {/* Route Timeline */}
                       <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-700 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                        <span>🚩 {r.fromLocation}</span>
+                        <span>{r.fromLocation}</span>
                         <span className="text-slate-400">({r.departureTime})</span>
                         <span className="text-slate-300">→</span>
                         {JSON.parse(r.stopsJson || "[]").map((st: string, idx: number) => (
@@ -196,7 +196,7 @@ export default function FindRidePage() {
                             ● {st} →
                           </span>
                         ))}
-                        <span>🏁 {r.toLocation}</span>
+                        <span>{r.toLocation}</span>
                       </div>
                     </div>
                   </div>
@@ -207,7 +207,7 @@ export default function FindRidePage() {
                       <span className="font-display text-2xl font-extrabold text-slate-900">{inr(r.pricePerSeat)}</span>
                       <span className="text-xs text-slate-400"> / seat</span>
                       <p className="text-xs font-bold text-emerald-600 mt-0.5">
-                        💺 {r.availableSeats} of {r.totalSeats} seats left
+                        {r.availableSeats} of {r.totalSeats} seats left
                       </p>
                     </div>
 

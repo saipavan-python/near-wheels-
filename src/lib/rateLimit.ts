@@ -18,7 +18,15 @@ export function checkRateLimit(key: string, limit: number, windowMs: number): { 
 // Helper to get IP from request
 export function getClientIp(req: Request): string {
   const xf = req.headers.get("x-forwarded-for");
-  if (xf) return xf.split(",")[0].trim();
+  if (xf) {
+    // Trust the RIGHTMOST entry: a load balancer (Cloud Run, Cloudflare, ALB)
+    // appends the real client address after any client-supplied value, so the
+    // leftmost entry is attacker-influenced. When not behind a proxy, the
+    // header is absent and we fall through below.
+    const parts = xf.split(",").map((s) => s.trim()).filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (last) return last;
+  }
   const realIp = req.headers.get("x-real-ip");
   if (realIp) return realIp.trim();
   // NextRequest has ip property in some runtimes

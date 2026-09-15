@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, Star } from "lucide-react";
+import { ArrowRight, ArrowUpRight } from "lucide-react";
 import type { ResultCard } from "@/lib/ui";
 import { api, inr } from "@/lib/ui";
 import Reveal from "./Reveal";
@@ -10,12 +10,15 @@ import Reveal from "./Reveal";
 export default function MarketplacePreview() {
   const [drivers, setDrivers] = useState<ResultCard[]>([]);
   const [garages, setGarages] = useState<ResultCard[]>([]);
+  const [loaded, setLoaded] = useState({ drivers: false, garages: false });
 
   useEffect(() => {
     api<{ result: { items: ResultCard[] } }>("/api/search?type=drivers&lat=15.4771&lng=78.4807")
-      .then((r) => setDrivers((r.data?.result?.items || []).slice(0, 3)));
+      .then((r) => setDrivers((r.data?.result?.items || []).slice(0, 3)))
+      .finally(() => setLoaded((s) => ({ ...s, drivers: true })));
     api<{ result: { items: ResultCard[] } }>("/api/search?type=garages&lat=15.4771&lng=78.4807")
-      .then((r) => setGarages((r.data?.result?.items || []).slice(0, 3)));
+      .then((r) => setGarages((r.data?.result?.items || []).slice(0, 3)))
+      .finally(() => setLoaded((s) => ({ ...s, garages: true })));
   }, []);
 
   return (
@@ -34,20 +37,20 @@ export default function MarketplacePreview() {
             </Link>
           </div>
           <div className="mt-6 space-y-3">
-            {(drivers.length ? drivers : Array.from({ length: 3 })).map((d: any, i: number) =>
-              d ? (
-                <Row
-                  key={d.id}
-                  href="/drivers"
-                  img={d.imageUrl || "/images/driver-profile.jpg"}
-                  title={String(d.meta?.name || d.title)}
-                  sub={`${d.rating > 0 ? ` ${d.rating.toFixed(1)} · ` : ""}${d.subtitle}`}
-                  price={d.priceLabel}
-                />
-              ) : (
-                <div key={i} className="skeleton h-[72px] rounded-2xl" />
-              )
-            )}
+            {drivers.length
+              ? drivers.map((d: any) => (
+                  <Row
+                    key={d.id}
+                    href="/drivers"
+                    img={d.imageUrl || "/images/driver-profile.jpg"}
+                    title={String(d.meta?.name || d.title)}
+                    sub={`${d.rating > 0 ? ` ${d.rating.toFixed(1)} · ` : ""}${d.subtitle}`}
+                    price={d.priceLabel}
+                  />
+                ))
+              : loaded.drivers
+              ? <EmptyState href="/providers/register" label="No drivers online yet — list your own vehicle or driver" cta="Become a provider" />
+              : <Skeletons />}
           </div>
         </Reveal>
 
@@ -64,24 +67,46 @@ export default function MarketplacePreview() {
             </Link>
           </div>
           <div className="mt-6 space-y-3">
-            {(garages.length ? garages : Array.from({ length: 3 })).map((g: any, i: number) =>
-              g ? (
-                <Row
-                  key={g.id}
-                  href="/garages"
-                  img={g.imageUrl || "/images/driver-profile.jpg"}
-                  title={g.title}
-                  sub={`${g.rating > 0 ? ` ${g.rating.toFixed(1)} · ` : ""}${g.subtitle}`}
-                  price={g.priceLabel}
-                />
-              ) : (
-                <div key={i} className="skeleton h-[72px] rounded-2xl" />
-              )
-            )}
+            {garages.length
+              ? garages.map((g: any) => (
+                  <Row
+                    key={g.id}
+                    href="/garages"
+                    img={g.imageUrl || "/images/driver-profile.jpg"}
+                    title={g.title}
+                    sub={`${g.rating > 0 ? ` ${g.rating.toFixed(1)} · ` : ""}${g.subtitle}`}
+                    price={g.priceLabel}
+                  />
+                ))
+              : loaded.garages
+              ? <EmptyState href="/providers/register" label="No services near you yet — be the first garage online" cta="Register your garage" />
+              : <Skeletons />}
           </div>
         </Reveal>
       </div>
     </section>
+  );
+}
+
+function Skeletons() {
+  return (
+    <>
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="skeleton h-[72px] rounded-2xl" />
+      ))}
+    </>
+  );
+}
+
+function EmptyState({ href, label, cta }: { href: string; label: string; cta: string }) {
+  return (
+    <Link
+      href={href}
+      className="card flex items-center justify-between gap-3 p-4 transition hover:border-brand-300"
+    >
+      <span className="text-sm font-medium text-ink-mute">{label}</span>
+      <span className="shrink-0 text-sm font-bold text-brand-600">{cta}</span>
+    </Link>
   );
 }
 

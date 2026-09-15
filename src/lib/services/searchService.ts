@@ -584,11 +584,20 @@ export async function searchGarages(f: SearchFilters): Promise<SearchResult> {
   const maxR = emergency ? settings.maxSearchRadiusKm : settings.immediateSearchRadiusKm * 2;
   const chosen = scored.filter((x) => x.d <= maxR).slice(0, 8);
 
+  const { scheduledFor, requestedRange } = requestedSchedule(f);
+  const booked = await bookedListingIds("GARAGE", chosen.map((c) => c.profile!.id), requestedRange);
+
   const rules = await prisma.pricingRule.findMany({
     where: { ownerProviderId: { in: chosen.map((c) => c.p.id) }, active: true, targetType: "GARAGE_SERVICE" },
   });
 
-  const items: ResultCard[] = chosen.map(({ p, d, profile }) => {
+  const items: ResultCard[] = chosen
+    .filter(({ p, profile }) => {
+      if (booked.has(profile!.id)) return false;
+      if (requestedRange && p.availabilityStatus === "OFFLINE") return false;
+      return true;
+    })
+    .map(({ p, d, profile }) => {
     const services: string[] = parse(profile!.services, []);
     const rule = rules.find((r) => r.ownerProviderId === p.id) || null;
     const priceFrom = minVisiblePrice(rule);
@@ -601,7 +610,7 @@ export async function searchGarages(f: SearchFilters): Promise<SearchResult> {
       category: "GARAGE",
       distanceKm: d,
       etaMin: etaMinutes(d),
-      availableNow: isAvailableNow(p) || (profile!.open24x7 && p.status === "ACTIVE"),
+      availableNow: !scheduledFor && (isAvailableNow(p) || (profile!.open24x7 && p.status === "ACTIVE")),
       priceLabel: priceFrom != null ? `visit from ${inr(priceFrom)}` : "price on request",
       priceFrom,
       rating: p.ratingAvg,
@@ -656,11 +665,20 @@ export async function searchFarm(f: SearchFilters): Promise<SearchResult> {
     if (radius >= settings.maxSearchRadiusKm) break;
   }
 
+  const { scheduledFor, requestedRange } = requestedSchedule(f);
+  const booked = await bookedListingIds("FARM", chosen.map((c) => c.e.id), requestedRange);
+
   const rules = await prisma.pricingRule.findMany({
     where: { ownerProviderId: { in: chosen.map((c) => c.e.providerId) }, active: true, targetType: "FARM_EQUIPMENT" },
   });
 
-  const items: ResultCard[] = chosen.map(({ e, d }) => {
+  const items: ResultCard[] = chosen
+    .filter(({ e }) => {
+      if (booked.has(e.id)) return false;
+      if (requestedRange && e.provider.availabilityStatus === "OFFLINE") return false;
+      return true;
+    })
+    .map(({ e, d }) => {
     const rule =
       rules.find((r) => r.ownerProviderId === e.providerId && r.targetId === e.id) ||
       rules.find((r) => r.ownerProviderId === e.providerId) ||
@@ -678,7 +696,7 @@ export async function searchFarm(f: SearchFilters): Promise<SearchResult> {
       category: e.equipmentType,
       distanceKm: d,
       etaMin: etaMinutes(d),
-      availableNow: isAvailableNow(e.provider),
+      availableNow: !scheduledFor && isAvailableNow(e.provider),
       priceLabel:
         priceFrom != null
           ? rule?.perAcre
@@ -723,11 +741,21 @@ export async function searchDrones(f: SearchFilters): Promise<SearchResult> {
     .sort((a, b) => a.d - b.d);
 
   const chosen = scored.slice(0, 6);
+
+  const { scheduledFor, requestedRange } = requestedSchedule(f);
+  const booked = await bookedListingIds("DRONE", chosen.map((c) => c.profile!.id), requestedRange);
+
   const rules = await prisma.pricingRule.findMany({
     where: { ownerProviderId: { in: chosen.map((c) => c.p.id) }, active: true, targetType: "DRONE_SERVICE" },
   });
 
-const items: ResultCard[] = chosen.map(({ p, d, profile }) => {
+const items: ResultCard[] = chosen
+    .filter(({ p, profile }) => {
+      if (booked.has(profile!.id)) return false;
+      if (requestedRange && p.availabilityStatus === "OFFLINE") return false;
+      return true;
+    })
+    .map(({ p, d, profile }) => {
     const rule = rules.find((r) => r.ownerProviderId === p.id) || null;
     const perAcre = rule?.perAcre ?? null;
     const estTotal = perAcre && f.acres ? Math.max(f.acres, rule?.minAcres || 0) * perAcre + (rule?.travelCharge || 0) : null;
@@ -740,7 +768,7 @@ const items: ResultCard[] = chosen.map(({ p, d, profile }) => {
       category: "DRONE_SPRAYING",
       distanceKm: d,
       etaMin: etaMinutes(d),
-      availableNow: isAvailableNow(p) || p.availabilityStatus === "SCHEDULED",
+      availableNow: !scheduledFor && (isAvailableNow(p) || p.availabilityStatus === "SCHEDULED"),
       priceLabel: perAcre != null ? `${inr(perAcre)}/acre` : "price on request",
       priceFrom: estTotal,
       rating: p.ratingAvg,
@@ -763,6 +791,51 @@ const items: ResultCard[] = chosen.map(({ p, d, profile }) => {
 }
 
 // ── helpers ───────────────────────────────────────────────────────────
+
+/**
+ * Booking ids that already block the requested date/range (or currently hold
+ * the listing for an immediate job when no date is requested). Mirrors the
+ * conflict logic used by vehicles/drivers so scheduled listings are not shown
+ * as available for a date they are already booked on.
+ */
+async function bookedListingIds(
+  listingKind: string,
+  listingIds: string[],
+  requestedRange: { start: Date; end: Date } | null
+): Promise<Set<string>> {
+  if (!listingIds.length) return new Set();
+  const active = ["REQUESTED", "PENDING_PROVIDER", "ACCEPTED", "CONFIRMED", "EN_ROUTE", "IN_PROGRESS"];
+  if (requestedRange) {
+    const from = new Date(requestedRange.start.getTime() - 24 * 3600_000);
+    const to = new Date(requestedRange.end.getTime() + 24 * 3600_000);
+    const conflicts = await prisma.booking.findMany({
+      where: {
+        listingKind,
+        listingId: { in: listingIds },
+        status: { in: active },
+        scheduledFor: { gte: from, lte: to },
+      },
+      select: { listingId: true },
+    });
+    return new Set(conflicts.map((c) => c.listingId));
+  }
+  const holds = await prisma.booking.findMany({
+    where: {
+      listingKind,
+      listingId: { in: listingIds },
+      scheduledFor: null,
+      status: { in: active },
+      OR: [{ holdExpiresAt: null }, { holdExpiresAt: { gt: new Date() } }],
+    },
+    select: { listingId: true },
+  });
+  return new Set(holds.map((c) => c.listingId));
+}
+
+function requestedSchedule(f: SearchFilters): { scheduledFor: Date | null; requestedRange: { start: Date; end: Date } | null } {
+  const scheduledFor = f.scheduledFor ? new Date(f.scheduledFor) : f.date ? new Date(f.date) : f.startDate ? new Date(f.startDate) : null;
+  return { scheduledFor, requestedRange: getRequestedDateRange(f) };
+}
 
 function summaryFor(f: SearchFilters): string {
   const bits: string[] = [];

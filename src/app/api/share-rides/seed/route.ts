@@ -4,19 +4,16 @@ import { ok, fail } from "@/lib/http";
 
 export const runtime = "nodejs";
 
-function seedAuthorized(req: NextRequest, count: number): boolean {
-  if (process.env.NODE_ENV === "production") {
-    const token = req.nextUrl.searchParams.get("token") || req.headers.get("x-seed-token") || "";
-    const expected = process.env.SEED_SHARE_RIDES_TOKEN;
-    return !!expected && token === expected && count === 0;
-  }
-  return count === 0;
+function seedAuthorized(req: NextRequest): boolean {
+  const token = req.nextUrl.searchParams.get("token") || req.headers.get("x-seed-token") || "";
+  const expected = process.env.SEED_SHARE_RIDES_TOKEN;
+  return !!expected && token === expected;
 }
 
 export async function GET(req: NextRequest) {
   const count = await prisma.sharedRide.count();
-  if (!seedAuthorized(req, count)) {
-    return fail(count > 0 ? "Seed already exists" : "Unauthorized", count > 0 ? 409 : 403);
+  if (!seedAuthorized(req)) {
+    return fail(count > 0 ? "Seed already exists" : "Unauthorized", 403);
   }
 
   const sampleRides = [

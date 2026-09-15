@@ -1,20 +1,15 @@
 import { NextRequest } from "next/server";
-import { getSession } from "@/lib/session";
 import { ok, fail } from "@/lib/http";
 import { prisma } from "@/lib/db";
 import { moveStatus } from "@/lib/services/bookingService";
 import { notifyUser, notifyProvider } from "@/lib/services/notificationService";
 import { audit } from "@/lib/services/auditService";
+import { requireAdmin } from "@/lib/adminAuth";
 
 export const runtime = "nodejs";
 
-function requireAdmin() {
-  const s = getSession();
-  return s && s.role === "ADMIN" ? s : null;
-}
-
 export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
-  const admin = requireAdmin();
+  const admin = await requireAdmin();
   if (!admin) return fail("Admin only", 403);
   const booking = await prisma.booking.findUnique({
     where: { id: ctx.params.id },
@@ -28,7 +23,7 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
 }
 
 export async function DELETE(req: NextRequest, ctx: { params: { id: string } }) {
-  const admin = requireAdmin();
+  const admin = await requireAdmin();
   if (!admin) return fail("Admin only", 403);
   const booking = await prisma.booking.findUnique({ where: { id: ctx.params.id } });
   if (!booking) return fail("Booking not found", 404);
@@ -39,7 +34,7 @@ export async function DELETE(req: NextRequest, ctx: { params: { id: string } }) 
 }
 
 export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
-  const admin = requireAdmin();
+  const admin = await requireAdmin();
   if (!admin) return fail("Admin only", 403);
   const b = await req.json().catch(() => ({}));
   const action = String(b.action || "").toLowerCase();

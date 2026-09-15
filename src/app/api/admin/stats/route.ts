@@ -1,17 +1,12 @@
-import { getSession } from "@/lib/session";
 import { ok, fail } from "@/lib/http";
 import { prisma } from "@/lib/db";
 import { aiQualityMetrics } from "@/lib/services/analyticsService";
+import { requireAdmin } from "@/lib/adminAuth";
 
 export const runtime = "nodejs";
 
-function requireAdmin() {
-  const s = getSession();
-  return s && s.role === "ADMIN" ? s : null;
-}
-
 export async function GET() {
-  if (!requireAdmin()) return fail("Admin only", 403);
+  if (!(await requireAdmin())) return fail("Admin only", 403);
 
   const since30 = new Date(Date.now() - 30 * 24 * 3600_000);
 

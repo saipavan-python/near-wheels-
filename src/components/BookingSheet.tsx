@@ -22,14 +22,17 @@ function addDays(n: number): string {
 export default function BookingSheet({
   card,
   acresHint,
+  presetDate,
   onClose,
 }: {
   card: ResultCard;
   acresHint?: number;
+  /** Date the customer picked during search ("YYYY-MM-DD") — pre-schedules the booking. */
+  presetDate?: string;
   onClose: () => void;
 }) {
-  const [mode, setMode] = useState<Mode>(card.availableNow ? "NOW" : "LATER");
-  const [date, setDate] = useState(addDays(1));
+  const [mode, setMode] = useState<Mode>(presetDate ? "LATER" : card.availableNow ? "NOW" : "LATER");
+  const [date, setDate] = useState(presetDate || addDays(1));
   const [time, setTime] = useState("09:00");
 
   // quantity inputs - correct logic per vehicleConfig

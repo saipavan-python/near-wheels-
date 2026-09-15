@@ -21,6 +21,7 @@ import {
   GraduationCap,
   ShieldAlert,
   Trash2,
+  Truck,
 } from "lucide-react";
 import { api, inr } from "@/lib/ui";
 
@@ -43,6 +44,17 @@ interface Stats {
   };
   searchHealth: { searches30d: number; noResultRate: number };
   recentBookings: { code: string; kind: string; providerName: string; status: string; amount: number; at: string }[];
+}
+
+interface ShareRideStats {
+  totals: { rides: number; bookings: number; activeRides: number; gmv: number; commission: number };
+  bookingsByStatus: Record<string, number>;
+  thisMonth: { rides: number; bookings: number; commission: number };
+  recentRides: {
+    id: string; driverName: string; driverPhone: string; verified: boolean; fromLocation: string; toLocation: string;
+    travelDate: string; departureTime: string; vehicleTitle: string; totalSeats: number; availableSeats: number;
+    pricePerSeat: number; status: string; bookings: { id: string; passengerName: string; passengerPhone: string; seatsBooked: number; totalAmount: number; platformFee: number; status: string }[];
+  }[];
 }
 
 interface Provider {
@@ -83,15 +95,19 @@ export default function AdminPage() {
   const [fuel, setFuel] = useState<{ PETROL: number; DIESEL: number; CNG: number } | null>(null);
   const [fuelSaving, setFuelSaving] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
-  const [activeTab, setActiveTab] = useState<"ANALYTICS" | "PROVIDERS" | "SCHOOLS" | "BOOKINGS" | "FUEL">("ANALYTICS");
+  const [activeTab, setActiveTab] = useState<"ANALYTICS" | "PROVIDERS" | "SCHOOLS" | "BOOKINGS" | "FUEL" | "SHARED_RIDES">("ANALYTICS");
+  const [shareStats, setShareStats] = useState<ShareRideStats | null>(null);
+  const [shareRides, setShareRides] = useState<any[]>([]);
 
   const loadDashboard = async () => {
     setLoading(true);
-    const [statsResult, providersResult, schoolsResult, settingsResult] = await Promise.all([
+    const [statsResult, providersResult, schoolsResult, settingsResult, shareStatsResult, shareRidesResult] = await Promise.all([
       api<Stats>("/api/admin/stats"),
       api<{ providers: Provider[] }>("/api/admin/providers?status=PENDING_VERIFICATION"),
       api<{ schools: School[] }>("/api/admin/driving-schools?status=PENDING_VERIFICATION"),
       api<{ settings: { fuelPrices: { PETROL: number; DIESEL: number; CNG: number } } }>("/api/admin/settings"),
+      api<ShareRideStats>("/api/admin/share-rides/stats"),
+      api<{ rides: any[] }>("/api/admin/share-rides?take=20"),
     ]);
     if (statsResult.ok) setStats(statsResult.data);
     if (providersResult.ok) setProviders(providersResult.data.providers || []);
@@ -100,6 +116,8 @@ export default function AdminPage() {
       const fp = settingsResult.data.settings.fuelPrices as unknown as { PETROL: number; DIESEL: number; CNG: number };
       setFuel({ PETROL: fp.PETROL, DIESEL: fp.DIESEL, CNG: fp.CNG });
     }
+    if (shareStatsResult.ok) setShareStats(shareStatsResult.data);
+    if (shareRidesResult.ok) setShareRides(shareRidesResult.data.rides || []);
     setLoading(false);
   };
 
@@ -269,6 +287,7 @@ const updateSchool = async (schoolId: string, status: string) => {
           { id: "SCHOOLS", label: `Driving Schools (${schools.length})`, icon: GraduationCap },
           { id: "BOOKINGS", label: "Live Bookings Control", icon: Calendar },
           { id: "FUEL", label: "Fuel Price Engine", icon: DollarSign },
+          { id: "SHARED_RIDES", label: "Share My Rides", icon: Truck },
         ].map((tab) => {
           const Icon = tab.icon;
           return (
@@ -548,7 +567,124 @@ const updateSchool = async (schoolId: string, status: string) => {
         </section>
       )}
 
-      {/* Provider Details Inspection Drawer */}
+       {/* 6. SHARE MY RIDES */}
+      {activeTab === "SHARED_RIDES" && (
+        <section className="space-y-6">
+          <h2 className="font-display text-xl font-bold text-ink flex items-center gap-2">
+            <Truck className="h-5 w-5 text-amber-600" /> Share My Ride — Platform Dashboard
+          </h2>
+
+          {shareStats && (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-1">
+                  <p className="text-xs font-bold text-slate-500">Rides Offered</p>
+                  <p className="font-display text-3xl font-extrabold text-ink">{shareStats.totals.rides}</p>
+                  <p className="text-[11px] font-semibold text-emerald-700">{shareStats.totals.activeRides} active right now</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-1">
+                  <p className="text-xs font-bold text-slate-500">Seat Bookings</p>
+                  <p className="font-display text-3xl font-extrabold text-ink">{shareStats.totals.bookings}</p>
+                  <p className="text-[11px] text-slate-500">{shareStats.bookingsByStatus.ACCEPTED ?? 0} confirmed</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-1">
+                  <p className="text-xs font-bold text-slate-500">Ride GMV</p>
+                  <p className="font-display text-3xl font-extrabold text-ink">{inr(shareStats.totals.gmv)}</p>
+                  <p className="text-[11px] text-slate-500">Passenger payments</p>
+                </div>
+                <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-5 shadow-sm space-y-1">
+                  <p className="text-xs font-bold text-amber-900">Platform Commission Earned</p>
+                  <p className="font-display text-3xl font-extrabold text-amber-900">{inr(shareStats.totals.commission)}</p>
+                  <p className="text-[11px] font-bold text-amber-800">this month {inr(shareStats.thisMonth.commission)}</p>
+                </div>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
+                  <h3 className="font-bold text-ink">Revenue this month</h3>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="rounded-xl bg-slate-50 p-3">
+                      <p className="text-lg font-extrabold text-ink">{shareStats.thisMonth.rides}</p>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase">rides offered</p>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-3">
+                      <p className="text-lg font-extrabold text-ink">{shareStats.thisMonth.bookings}</p>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase">bookings</p>
+                    </div>
+                    <div className="rounded-xl bg-amber-50 p-3">
+                      <p className="text-lg font-extrabold text-amber-800">{inr(shareStats.thisMonth.commission)}</p>
+                      <p className="text-[10px] font-bold text-amber-700 uppercase">commission</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
+                  <h3 className="font-bold text-ink">Bookings by status</h3>
+                  <div className="space-y-2">
+                    {Object.entries(shareStats.bookingsByStatus).map(([status, count]) => (
+                      <div key={status} className="flex items-center justify-between text-sm">
+                        <span className="font-semibold text-slate-700">{status}</span>
+                        <span className="font-extrabold text-ink">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div className="flex items-center justify-between border-b border-slate-100 p-6">
+                  <h3 className="font-display text-lg font-bold text-ink">Recent offered rides</h3>
+                  <span className="rounded-full bg-amber-100 border border-amber-200 px-3 py-1 text-xs font-bold text-amber-900">
+                    {shareStats.totals.rides} rides total
+                  </span>
+                </div>
+                <div className="divide-y divide-slate-100 text-sm">
+                  {shareRides.length === 0 ? (
+                    <p className="p-8 text-center text-xs text-slate-500 font-semibold">No rides offered yet. Offer your first ride.</p>
+                  ) : (
+                    shareRides.map((r) => (
+                      <div key={r.id} className="p-4 space-y-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                          <div className="flex items-center gap-3">
+                            <div className="grid h-10 w-10 place-items-center rounded-xl bg-amber-100 font-extrabold text-amber-800">
+                              {r.driverName[0]}
+                            </div>
+                            <div>
+                              <p className="font-bold text-ink">{r.driverName} {r.verified && <span className="text-emerald-600 text-[10px]"><Check className="h-3 w-3 inline" /></span>}</p>
+                              <p className="text-xs text-slate-500">{r.fromLocation} → {r.toLocation} · {r.travelDate} · {r.departureTime}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 text-xs font-bold">
+                            <span>{r.pricePerSeat} / seat</span>
+                            <span className="text-amber-800">fee {inr(r.bookings.reduce((s: number, b: any) => s + b.platformFee, 0))}</span>
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">{r.availableSeats}/{r.totalSeats}</span>
+                          </div>
+                        </div>
+                        {r.bookings.length > 0 && (
+                          <div className="ml-13 border-l-2 border-slate-200 pl-4 space-y-1.5">
+                            {r.bookings.map((b: any) => (
+                              <div key={b.id} className="flex items-center justify-between text-xs">
+                                <div>
+                                  <span className="font-bold text-slate-800">{b.passengerName}</span>{" "}
+                                  <span className="text-slate-500">{b.passengerPhone}</span>
+                                  <span className="ml-2 text-slate-400">{b.seatsBooked} seat(s)</span>
+                                </div>
+                                <span className="rounded-md bg-emerald-100 px-2 py-0.5 font-bold text-emerald-800">{b.status}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </section>
+      )}
+
+        {/* Provider Details Inspection Drawer */}
       {selectedProvider && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/50 backdrop-blur-sm sm:items-center sm:p-4" onClick={() => setSelectedProvider(null)}>
           <div className="sheet-in w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-t-3xl bg-white shadow-xl sm:rounded-3xl" onClick={(e) => e.stopPropagation()}>

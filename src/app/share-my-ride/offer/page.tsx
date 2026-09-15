@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Car,
@@ -32,13 +32,11 @@ export default function OfferRideWizard() {
   const [stops, setStops] = useState<string[]>(["Vijayawada", "Nellore", "Chennai"]);
   const [newStop, setNewStop] = useState("");
 
-  // Step 3: Vehicle Selection
-  const [selectedVehicle, setSelectedVehicle] = useState({
-    title: "Maruti Suzuki Ertiga",
-    seats: 7,
-    fuel: "Petrol",
-    verified: true,
-  });
+  // Step 3: Vehicle Selection — provider's own vehicles + manual add
+  const [vehicles, setVehicles] = useState<{ title: string; seats: number; fuel: string; verified: boolean }[]>([]);
+  const [selectedVehicle, setSelectedVehicle] = useState<{ title: string; seats: number; fuel: string; verified: boolean } | null>(null);
+  const [showVehForm, setShowVehForm] = useState(false);
+  const [newVeh, setNewVeh] = useState({ title: "", seats: 7, fuel: "Petrol" });
 
   // Step 4: Available Seats
   const [availableSeats, setAvailableSeats] = useState(4);
@@ -76,12 +74,59 @@ export default function OfferRideWizard() {
     setStops(stops.filter((_, i) => i !== idx));
   }
 
+  // Pre-fill Step 03 with the provider's registered vehicles (already listed "near vehicle name")
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/providers/vehicles")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!alive || !d?.ok || !Array.isArray(d.vehicles)) return;
+        const list = d.vehicles.map((v: any) => ({
+          title: String(v.title || `${v.make || ""} ${v.model || ""}`.trim() || "My vehicle"),
+          seats: Number(v.seats) || 4,
+          fuel: String(v.fuelType || "Petrol"),
+          verified: true,
+        }));
+        setVehicles(list);
+        if (list.length) setSelectedVehicle(list[0]);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  function addVehicle() {
+    const title = newVeh.title.trim();
+    if (!title) return;
+    const v = {
+      title,
+      seats: Math.min(12, Math.max(2, Number(newVeh.seats) || 4)),
+      fuel: newVeh.fuel.trim() || "Petrol",
+      verified: false,
+    };
+    setVehicles((list) => [...list, v]);
+    setSelectedVehicle(v);
+    setShowVehForm(false);
+    setNewVeh({ title: "", seats: 7, fuel: "Petrol" });
+  }
+
+  function removeVehicle(idx: number) {
+    const removed = vehicles[idx];
+    const next = vehicles.filter((_, i) => i !== idx);
+    setVehicles(next);
+    if (removed && selectedVehicle && selectedVehicle.title === removed.title) {
+      setSelectedVehicle(next[0] || null);
+    }
+  }
+
   const estimatedTotal = fuelCost + tollCost + otherCost;
   const suggestedContribution = Math.round(estimatedTotal / (availableSeats + 1));
 
   async function handlePublish() {
     setError(null);
     setPublishing(true);
+    const veh = selectedVehicle!;
     try {
       const res = await fetch("/api/share-rides", {
         method: "POST",
@@ -91,8 +136,8 @@ export default function OfferRideWizard() {
           toLocation,
           travelDate,
           departureTime,
-          vehicleTitle: selectedVehicle.title,
-          totalSeats: selectedVehicle.seats,
+          vehicleTitle: veh.title,
+          totalSeats: veh.seats,
           availableSeats,
           pricePerSeat,
           stops,
@@ -282,40 +327,126 @@ export default function OfferRideWizard() {
         {step === 3 && (
           <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 md:p-8 shadow-sm space-y-6">
             <h2 className="font-display text-xl font-bold text-slate-900">Step 03 — SELECT YOUR VEHICLE</h2>
+            <p className="text-xs text-slate-500">Pick one of your registered vehicles, or add your own details here.</p>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              {[
-                { title: "Maruti Suzuki Ertiga", seats: 7, fuel: "Petrol", verified: true },
-                { title: "Kia Carens", seats: 7, fuel: "Diesel", verified: true },
-              ].map((v, i) => (
-                <div
-                  key={i}
-                  onClick={() => setSelectedVehicle(v)}
-                  className={`cursor-pointer rounded-2xl border-2 p-5 transition ${
-                    selectedVehicle.title === v.title
-                      ? "border-amber-500 bg-amber-50/50 shadow-md"
-                      : "border-slate-200 bg-white hover:border-slate-300"
-                  }`}
+            {vehicles.length === 0 && !showVehForm ? (
+              <div className="rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-6 text-center">
+                <Car className="mx-auto h-8 w-8 text-slate-400" />
+                <p className="mt-2 text-sm font-bold text-slate-800">No vehicle selected yet</p>
+                <p className="mt-0.5 text-xs text-slate-500">Add your own car details to offer this ride.</p>
+                <button
+                  type="button"
+                  onClick={() => setShowVehForm(true)}
+                  className="btn-primary mt-4 !py-2.5 mx-auto flex items-center gap-1.5"
                 >
-                  <div className="flex items-center justify-between">
-                    <Car className="h-6 w-6 text-amber-600" />
-                    {v.verified && (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
-                        <ShieldCheck className="h-3 w-3" /> Verified
-                      </span>
-                    )}
+                  <Plus className="h-4 w-4" /> Add my vehicle
+                </button>
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {vehicles.map((v, i) => (
+                  <div
+                    key={i}
+                    onClick={() => setSelectedVehicle(v)}
+                    className={`cursor-pointer rounded-2xl border-2 p-5 transition ${
+                      selectedVehicle?.title === v.title
+                        ? "border-amber-500 bg-amber-50/50 shadow-md"
+                        : "border-slate-200 bg-white hover:border-slate-300"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <Car className="h-6 w-6 text-amber-600" />
+                      <div className="flex items-center gap-2">
+                        {v.verified && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                            <ShieldCheck className="h-3 w-3" /> Verified
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          aria-label={`Remove ${v.title}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeVehicle(i);
+                          }}
+                          className="rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <h3 className="mt-3 font-display font-bold text-slate-900">{v.title}</h3>
+                    <p className="mt-1 text-xs text-slate-500">{v.seats} seats · {v.fuel}</p>
                   </div>
-                  <h3 className="mt-3 font-display font-bold text-slate-900">{v.title}</h3>
-                  <p className="mt-1 text-xs text-slate-500">{v.seats} seats · {v.fuel}</p>
+                ))}
+
+                <button
+                  type="button"
+                  onClick={() => setShowVehForm(true)}
+                  className="flex min-h-[120px] flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-slate-300 p-5 text-slate-500 transition hover:border-amber-400 hover:text-amber-600"
+                >
+                  <Plus className="h-5 w-5" /> Add vehicle
+                </button>
+              </div>
+            )}
+
+            {showVehForm && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 space-y-3">
+                <p className="text-xs font-bold uppercase tracking-wider text-amber-800">Add your vehicle details</p>
+                <div>
+                  <label className="label" htmlFor="veh-name">Vehicle name (make + model)</label>
+                  <input
+                    id="veh-name"
+                    value={newVeh.title}
+                    onChange={(e) => setNewVeh({ ...newVeh, title: e.target.value })}
+                    placeholder="e.g. Maruti Suzuki Ertiga"
+                    className="input"
+                  />
                 </div>
-              ))}
-            </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="label" htmlFor="veh-seats">Seats</label>
+                    <input
+                      id="veh-seats"
+                      type="number"
+                      min={2}
+                      max={12}
+                      value={newVeh.seats}
+                      onChange={(e) => setNewVeh({ ...newVeh, seats: Number(e.target.value) || 7 })}
+                      className="input"
+                    />
+                  </div>
+                  <div>
+                    <label className="label" htmlFor="veh-fuel">Fuel</label>
+                    <input
+                      id="veh-fuel"
+                      value={newVeh.fuel}
+                      onChange={(e) => setNewVeh({ ...newVeh, fuel: e.target.value })}
+                      placeholder="e.g. Petrol / Diesel"
+                      className="input"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button type="button" onClick={addVehicle} className="btn-primary flex-1 !py-2.5 flex items-center justify-center gap-1.5">
+                    <Check className="h-4 w-4" /> Save vehicle
+                  </button>
+                  <button type="button" onClick={() => setShowVehForm(false)} className="btn-outline !py-2.5">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-4">
               <button onClick={() => setStep(2)} className="btn-outline flex-1 !py-3">
                 <ArrowLeft className="h-4 w-4 inline mr-1" /> Back
               </button>
-              <button onClick={() => setStep(4)} className="btn-primary flex-1 !py-3">
+              <button
+                onClick={() => setStep(4)}
+                disabled={!selectedVehicle}
+                className="btn-primary flex-1 !py-3 disabled:opacity-60"
+              >
                 Continue to Seats <ArrowRight className="h-4 w-4 inline ml-1" />
               </button>
             </div>
@@ -449,7 +580,7 @@ export default function OfferRideWizard() {
                 <span className="text-xs text-slate-400">{travelDate} · {departureTime}</span>
               </div>
               <h3 className="text-xl font-bold">{fromLocation} → {toLocation}</h3>
-              <p className="text-xs text-slate-300">{selectedVehicle.title} · {availableSeats} seats available · {inr(pricePerSeat)} / seat</p>
+              <p className="text-xs text-slate-300">{selectedVehicle?.title || "—"} · {availableSeats} seats available · {inr(pricePerSeat)} / seat</p>
               {stops.length > 0 && <p className="text-xs text-slate-400">Stops: {fromLocation} → {stops.join(" → ")} → {toLocation}</p>}
             </div>
 

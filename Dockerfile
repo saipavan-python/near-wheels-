@@ -48,6 +48,11 @@ RUN mkdir -p data/uploads && chown -R nextjs:nodejs /app
 USER nextjs
 EXPOSE 8080
 
-# Wait for DB reachable, ensure schema, then serve.
-# Cloud Run overrides PORT env (8080). SESSION_SECRET etc. come from runtime env vars.
-CMD ["sh", "-c", "npx prisma generate >/dev/null 2>&1; npx prisma db push --skip-generate >/dev/null 2>&1; node node_modules/next/dist/bin/next start -p ${PORT:-8080}"]
+HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8080)+'/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+# Schema is migrated in CI (prisma db push / migrate) BEFORE deployment.
+# Running `prisma db push` on every cold start is unsafe with concurrent
+# instances and makes startups slow. Prisma client is already generated in the
+# builder stage and copied into the runner image.
+CMD ["sh", "-c", "node node_modules/next/dist/bin/next start -p ${PORT:-8080}"]

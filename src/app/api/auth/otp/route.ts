@@ -7,8 +7,15 @@ import { audit } from "@/lib/services/auditService";
 
 export const runtime = "nodejs";
 
+let lastOtpPurge = 0;
+
 /** Request an OTP (dev mode returns the code so the demo is usable). */
 export async function POST(req: NextRequest) {
+  const now = Date.now();
+  if (now - lastOtpPurge > 60_000) {
+    lastOtpPurge = now;
+    await prisma.otpCode.deleteMany({ where: { consumed: true } }).catch(() => undefined);
+  }
   const { checkRateLimit, getClientIp } = await import("@/lib/rateLimit");
   const ip = getClientIp(req);
   const b0 = await req.json().catch(() => ({}));

@@ -16,7 +16,7 @@ import {
   Check,
   Calendar,
 } from "lucide-react";
-import { inr } from "@/lib/ui";
+import { api, inr } from "@/lib/ui";
 
 export default function RideDetailsPage({ params }: { params: { id: string } }) {
   const [ride, setRide] = useState<any>(null);
@@ -29,6 +29,8 @@ export default function RideDetailsPage({ params }: { params: { id: string } }) 
   const [passengerPhone, setPassengerPhone] = useState("");
   const [bookingSubmitted, setBookingSubmitted] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
+  const [driverContact, setDriverContact] = useState<{ name: string; phone: string } | null>(null);
+  const [payState, setPayState] = useState<"IDLE" | "PAYING" | "SUCCESS" | "FAILED">("IDLE");
 
   useEffect(() => {
     fetch(`/api/share-rides/${params.id}`)
@@ -80,8 +82,25 @@ export default function RideDetailsPage({ params }: { params: { id: string } }) 
         setBookingError(data.error || "Failed to confirm seat booking.");
       } else {
         setBookingSubmitted(true);
+        if (data.driverPhone) setDriverContact({ name: data.driverName || ride.driverName, phone: data.driverPhone });
       }
     } catch {
+      setBookingError("Network error — please try again.");
+    }
+  }
+
+  async function pay() {
+    setPayState("PAYING");
+    setBookingError(null);
+    try {
+      const init = await api<{ payment: { gatewayRef: string; amount: number } }>(`/api/share-rides/${ride.id}/payment`, { method: "POST", json: {} });
+      if (!init.ok) { setPayState("IDLE"); setBookingError(init.data.error || "Could not start payment."); return; }
+      const v = await api<{ status: string; driverName?: string; driverPhone?: string; idempotentReplay?: boolean }>(`/api/share-rides/${ride.id}/payment`, { method: "PUT", json: { gatewayRef: init.data.payment.gatewayRef, outcome: "success" } });
+      if (!v.ok) { setPayState("FAILED"); setBookingError(v.data.error || "Payment failed."); return; }
+      setPayState("SUCCESS");
+      if (v.data.driverPhone) setDriverContact({ name: v.data.driverName || ride.driverName, phone: v.data.driverPhone });
+    } catch {
+      setPayState("IDLE");
       setBookingError("Network error — please try again.");
     }
   }
@@ -314,23 +333,41 @@ export default function RideDetailsPage({ params }: { params: { id: string } }) 
                   </span>
                   <h3 className="font-display text-xl font-bold text-slate-900">Seat Booking Confirmed!</h3>
                   <p className="text-xs text-slate-600">
-                    Your {seatsBooked} seat(s) on <strong>{ride.driverName}</strong>'s ride have been confirmed!
+                    Your {seatsBooked} seat(s) on <strong>{ride.driverName}</strong>'s ride have been reserved.
                   </p>
-
-                  <div className="pt-2 flex flex-col gap-2">
-                    <Link
-                      href={`/share-my-ride/live/${ride.id}`}
-                      className="btn-primary !py-2.5"
-                    >
-                      TRACK LIVE TRIP
-                    </Link>
-                    <Link
-                      href="/share-my-ride/my-bookings"
-                      className="btn-outline !py-2.5"
-                    >
-                      View My Bookings
-                    </Link>
-                  </div>
+                  {payState !== "SUCCESS" ? (
+                    <>
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                        <p className="text-sm font-bold text-amber-900">Pay to confirm the ride</p>
+                        <p className="mt-1 text-2xl font-extrabold text-ink">{inr(ride.totalAmount)}</p>
+                        {payState === "PAYING" && <p className="mt-1 text-xs text-slate-500 animate-pulse">Processing payment…</p>}
+                        {payState === "FAILED" && <p className="mt-1 text-xs text-red-600 font-bold">{bookingError || "Payment failed."}</p>}
+                      </div>
+                      <button
+                        disabled={payState === "PAYING"}
+                        onClick={pay}
+                        className="btn-primary w-full !py-2.5 disabled:opacity-60"
+                      >
+                        {payState === "PAYING" ? "Paying…" : `Pay ${inr(ride.totalAmount)} to Confirm`}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {driverContact && (
+                        <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-left">
+                          <p className="text-xs font-bold uppercase tracking-wider text-emerald-800">Driver contact revealed</p>
+                          <p className="mt-1 text-sm font-bold text-emerald-900">{driverContact.name}</p>
+                          <a href={`tel:${driverContact.phone}`} className="mt-1 inline-flex items-center gap-1 text-sm font-bold text-amber-700 hover:underline">
+                            📞 {driverContact.phone} — Call driver
+                          </a>
+                        </div>
+                      )}
+                      <div className="pt-2 flex flex-col gap-2">
+                        <Link href={`/share-my-ride/live/${ride.id}`} className="btn-primary !py-2.5">TRACK LIVE TRIP</Link>
+                        <Link href="/share-my-ride/my-bookings" className="btn-outline !py-2.5">View My Bookings</Link>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>

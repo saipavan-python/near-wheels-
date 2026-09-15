@@ -40,16 +40,13 @@ export default function ShareMyRideLandingPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Seed initial sample rides if empty
-    fetch("/api/share-rides/seed").then(() => {
-      fetch("/api/share-rides")
-        .then((r) => r.json())
-        .then((d) => {
-          setRides(d.rides || []);
-          setLoading(false);
-        })
-        .catch(() => setLoading(false));
-    });
+    fetch("/api/share-rides")
+      .then((r) => r.json())
+      .then((d) => {
+        setRides(d.rides || []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   return (

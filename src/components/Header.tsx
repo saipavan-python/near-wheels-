@@ -142,7 +142,7 @@ export default function Header() {
                           onClick={() => setOpen(false)}
                           className="flex items-center justify-between rounded-xl bg-white border border-brand-200 px-3 py-2 text-xs font-bold text-brand-800 transition hover:bg-brand-50"
                         >
-                          <span>🚗 Become a Provider</span>
+                          <span>Become a Provider</span>
                           <span className="text-[10px] font-extrabold uppercase bg-brand-600 text-white px-1.5 py-0.5 rounded">Free</span>
                         </Link>
                       </div>
@@ -150,7 +150,7 @@ export default function Header() {
 
                     {isAdmin && (
                       <MenuLink href="/admin" onClick={() => setOpen(false)}>
-                        <span className="font-semibold text-purple-700">⚡ Admin Dashboard</span>
+                        <span className="font-semibold text-purple-700">Admin Dashboard</span>
                       </MenuLink>
                     )}
 

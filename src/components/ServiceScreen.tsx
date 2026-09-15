@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   Search, MapPin, Sparkles, Star, IndianRupee, Scale, Check, Loader2,
   Car, Bike, Truck, Tractor, Wrench, BatteryCharging, CircleDot, Zap,
-  Snowflake, Droplets, Sprout, Cpu, UserRound, LayoutGrid,
+  Snowflake, Droplets, Sprout, Cpu, UserRound, LayoutGrid, CalendarClock,
 } from "lucide-react";
 import type { ResultCard, SearchResult } from "@/lib/ui";
 import { api } from "@/lib/ui";
@@ -113,6 +113,7 @@ export default function ServiceScreen({ config }: { config: ServiceConfig }) {
   const [error, setError] = useState<string | null>(null);
   const [ambiguous, setAmbiguous] = useState<{ id: string; label: string; lat: number; lng: number }[] | null>(null);
   const [radiusBoost, setRadiusBoost] = useState(0);
+  const [when, setWhen] = useState("");
 
   const [booking, setBooking] = useState<ResultCard | null>(null);
   const [compareIds, setCompareIds] = useState<string[]>([]);
@@ -141,6 +142,7 @@ export default function ServiceScreen({ config }: { config: ServiceConfig }) {
         p.set("lng", String(loc.lng));
       }
       if (!p.get("lat")) p.set("locationText", locText);
+      if (when) p.set("scheduledFor", new Date(`${when}T09:00:00`).toISOString());
       const radius = override?.radiusKm ?? (radiusBoost || null);
       if (radius) p.set("radiusKm", String(radius));
       for (const [k, v] of Object.entries(quick)) if (v) p.set(k, v);
@@ -169,7 +171,7 @@ export default function ServiceScreen({ config }: { config: ServiceConfig }) {
       }
       setResult(r.data.result);
     },
-    [loc, quick, sort, model, acres, rentalMode, seats, ac, radiusBoost, config.searchType]
+    [loc, quick, sort, model, acres, rentalMode, seats, ac, radiusBoost, when, config.searchType]
   );
 
   useEffect(() => {
@@ -188,6 +190,14 @@ export default function ServiceScreen({ config }: { config: ServiceConfig }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sort]);
 
+  // re-search when the customer picks a "when do you need it" date
+  useEffect(() => {
+    if (didInitialSearch.current && result && !loading) {
+      runSearch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [when]);
+
   // Handoff from hero SearchPanel / landing CTAs:
   // ?locationText=&lat=&lng=&category=&rentalMode=
   useEffect(() => {
@@ -199,6 +209,8 @@ export default function ServiceScreen({ config }: { config: ServiceConfig }) {
     const lng = parseFloat(q.get("lng") || "");
     if (q.get("rentalMode")) setRentalMode(q.get("rentalMode")!);
     if (q.get("category")) setQuick((prev) => ({ ...prev, category: q.get("category")! }));
+    const urlDate = q.get("date");
+    if (urlDate && /^\d{4}-\d{2}-\d{2}$/.test(urlDate)) setWhen(urlDate);
     runSearch({
       locationText: lt || undefined,
       lat: lat && lng ? lat : undefined,
@@ -253,6 +265,24 @@ export default function ServiceScreen({ config }: { config: ServiceConfig }) {
             >
               {loading ? "Searching…" : <><Search className="h-4 w-4" /> Search</>}
             </button>
+          </div>
+
+          {/* when do you need it — same as vehicles/drivers so farm, garage & drone bookings can be pre-scheduled */}
+          <div className="grid gap-3 sm:grid-cols-[auto_1fr_auto] sm:items-center">
+            <label className="flex items-center gap-2 text-xs font-semibold text-ink" htmlFor="svc-when">
+              <CalendarClock className="h-4 w-4 text-brand-500" />
+              When do you need it?
+            </label>
+            <input
+              id="svc-when"
+              type="date"
+              className="input !h-10 !px-3"
+              value={when}
+              min={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => setWhen(e.target.value)}
+              aria-label="When do you need it"
+            />
+            <p className="text-xs text-ink-faint">{when ? "We'll filter out options already booked that day." : "Blank = today / as soon as possible."}</p>
           </div>
 
           {/* quick filters */}
@@ -505,6 +535,7 @@ export default function ServiceScreen({ config }: { config: ServiceConfig }) {
         <BookingSheet
           card={booking}
           acresHint={acres ? Number(acres) : undefined}
+          presetDate={when || undefined}
           onClose={() => setBooking(null)}
         />
       )}

@@ -301,7 +301,7 @@ export default function DriversClient() {
         )}
       </div>
 
-      {booking && <BookingSheet card={booking} onClose={() => setBooking(null)} />}
+      {booking && <BookingSheet card={booking} presetDate={when || undefined} onClose={() => setBooking(null)} />}
     </div>
   );
 }

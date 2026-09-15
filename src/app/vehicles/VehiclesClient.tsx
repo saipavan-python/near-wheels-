@@ -348,7 +348,7 @@ export default function VehiclesClient() {
         )}
       </div>
 
-      {booking && <BookingSheet card={booking} onClose={() => setBooking(null)} />}
+      {booking && <BookingSheet card={booking} presetDate={searchDate || undefined} onClose={() => setBooking(null)} />}
     </div>
   );
 }

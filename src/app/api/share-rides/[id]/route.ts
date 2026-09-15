@@ -43,30 +43,35 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return fail(`Only ${ride.availableSeats} seat(s) available.`);
   }
 
-  const totalAmount = seatsBooked * ride.pricePerSeat;
+    const totalAmount = seatsBooked * ride.pricePerSeat;
 
-  const booking = await prisma.sharedRideBooking.create({
-    data: {
-      rideId: ride.id,
-      passengerName,
-      passengerPhone,
-      passengerEmail,
-      seatsBooked,
-      totalAmount,
-      message,
-      status: "ACCEPTED", // Auto-confirm
-    },
-  });
+    // Platform commission per booked seat (audit trail on every booking)
+    const COMMISSION_PCT = Number(process.env.SHARE_RIDE_COMMISSION_PCT || 15);
+    const platformFee = Math.round(totalAmount * COMMISSION_PCT / 100);
 
-  // Update available seats
-  const updatedRide = await prisma.sharedRide.update({
-    where: { id: ride.id },
-    data: {
-      availableSeats: Math.max(0, ride.availableSeats - seatsBooked),
-    },
-  });
+    const booking = await prisma.sharedRideBooking.create({
+      data: {
+        rideId: ride.id,
+        passengerName,
+        passengerPhone,
+        passengerEmail,
+        seatsBooked,
+        totalAmount,
+        platformFee,
+        message,
+        status: "ACCEPTED", // Auto-confirm
+      },
+    });
 
-  return ok({ booking, ride: updatedRide, message: "Seat request confirmed!" });
+    // Update available seats
+    const updatedRide = await prisma.sharedRide.update({
+      where: { id: ride.id },
+      data: {
+        availableSeats: Math.max(0, ride.availableSeats - seatsBooked),
+      },
+    });
+
+    return ok({ booking, ride: updatedRide, driverPhone: ride.driverPhone, driverName: ride.driverName, message: "Seat request confirmed!" });
 }
 
 export async function DELETE(req: NextRequest, ctx: { params: { id: string } }) {

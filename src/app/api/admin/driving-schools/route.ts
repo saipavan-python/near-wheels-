@@ -1,16 +1,11 @@
 ﻿import { NextRequest } from "next/server";
 import { ok, fail, readJson } from "@/lib/http";
 import { prisma } from "@/lib/db";
-import { getSession } from "@/lib/session";
 import { audit } from "@/lib/services/auditService";
-
-function requireAdmin() {
-  const s = getSession();
-  return s && s.role === "ADMIN" ? s : null;
-}
+import { requireAdmin } from "@/lib/adminAuth";
 
 export async function GET(req: NextRequest) {
-  if (!requireAdmin()) return fail("Admin only", 403);
+  if (!(await requireAdmin())) return fail("Admin only", 403);
   try {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status") || "PENDING_VERIFICATION";
@@ -49,7 +44,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PATCH(req: NextRequest) {
-  if (!requireAdmin()) return fail("Admin only", 403);
+  if (!(await requireAdmin())) return fail("Admin only", 403);
   try {
     const data = await readJson(req);
     const { schoolId, status, reason } = data;
@@ -89,7 +84,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const admin = requireAdmin();
+  const admin = await requireAdmin();
   if (!admin) return fail("Admin only", 403);
   const b = await readJson(req);
   const ids = b.ids || [];

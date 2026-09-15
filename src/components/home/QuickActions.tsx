@@ -31,7 +31,7 @@ const ACTIONS = [
     href: "/share-my-ride",
     img: "/images/hero.jpg",
     Icon: CarFront,
-    title: "Share My Ride 🤝",
+    title: "Share My Ride",
     desc: "Your Wheels. Your Choice. Share empty seats.",
   },
 ];

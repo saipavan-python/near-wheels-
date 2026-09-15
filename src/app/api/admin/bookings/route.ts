@@ -1,18 +1,13 @@
 import { NextRequest } from "next/server";
-import { getSession } from "@/lib/session";
 import { ok, fail } from "@/lib/http";
 import { prisma } from "@/lib/db";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import { requireAdmin } from "@/lib/adminAuth";
 
 export const runtime = "nodejs";
 
-function requireAdmin() {
-  const s = getSession();
-  return s && s.role === "ADMIN" ? s : null;
-}
-
 export async function GET(req: NextRequest) {
-  if (!requireAdmin()) return fail("Admin only", 403);
+  if (!(await requireAdmin())) return fail("Admin only", 403);
   const status = req.nextUrl.searchParams.get("status") || "PENDING";
   const page = Math.min(100, Math.max(1, parseInt(req.nextUrl.searchParams.get("page") || "1")));
   const pageSize = Math.min(50, Math.max(1, parseInt(req.nextUrl.searchParams.get("pageSize") || "20")));
@@ -37,7 +32,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const admin = requireAdmin();
+  const admin = await requireAdmin();
   if (!admin) return fail("Admin only", 403);
   const ip = getClientIp(req);
   const rl = checkRateLimit(`admin-action:${ip}`, 20, 60_000);

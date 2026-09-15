@@ -77,7 +77,7 @@ export default function LiveRidePage({ params }: { params: { id: string } }) {
           <h1 className="font-display text-3xl font-extrabold text-white md:text-4xl">
             {ride.fromLocation} → {ride.toLocation}
           </h1>
-          <p className="mt-1 text-xs text-slate-400">Departed at {ride.departureTime} · 🚗 {ride.vehicleTitle}</p>
+          <p className="mt-1 text-xs text-slate-400">Departed at {ride.departureTime} · {ride.vehicleTitle}</p>
         </div>
 
         {/* Interactive Progress Timeline & Map Card */}
@@ -94,7 +94,7 @@ export default function LiveRidePage({ params }: { params: { id: string } }) {
             {stops.map((st, i) => (
               <div key={i} className="ml-2 border-l-2 border-slate-700 pl-6 py-2 flex items-center justify-between text-xs text-slate-300">
                 <span className="flex items-center gap-2 font-semibold">
-                  🚗 On the way to {st}
+                  On the way to {st}
                 </span>
                 <span className="text-amber-400 font-bold">Approaching</span>
               </div>
@@ -141,7 +141,7 @@ export default function LiveRidePage({ params }: { params: { id: string } }) {
             onClick={() => setShowRatingModal(true)}
             className="btn-primary w-full !py-3.5 text-base flex items-center justify-center gap-2"
           >
-            COMPLETE RIDE & RATE DRIVER ⭐
+            COMPLETE RIDE & RATE DRIVER
           </button>
         </div>
 

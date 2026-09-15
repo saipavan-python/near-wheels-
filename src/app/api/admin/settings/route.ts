@@ -1,23 +1,18 @@
 import { NextRequest } from "next/server";
-import { getSession } from "@/lib/session";
 import { ok, fail } from "@/lib/http";
 import { getSettings, saveSettings, PlatformSettings } from "@/lib/config";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
+import { requireAdmin } from "@/lib/adminAuth";
 
 export const runtime = "nodejs";
 
-function requireAdmin() {
-  const s = getSession();
-  return s && s.role === "ADMIN" ? s : null;
-}
-
 export async function GET() {
-  if (!requireAdmin()) return fail("Admin only", 403);
+  if (!(await requireAdmin())) return fail("Admin only", 403);
   return ok({ settings: await getSettings() });
 }
 
 export async function PUT(req: NextRequest) {
-  const session = requireAdmin();
+  const session = await requireAdmin();
   if (!session) return fail("Admin only", 403);
   const ip = getClientIp(req);
   const rl = checkRateLimit(`admin-settings:${ip}`, 10, 60_000);

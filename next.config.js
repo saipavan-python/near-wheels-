@@ -3,6 +3,10 @@ const noIndexHeaders = [
   { key: "X-Robots-Tag", value: "noindex, nofollow" },
 ];
 
+const hsts = process.env.NODE_ENV === "production"
+  ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" }]
+  : [];
+
 const nextConfig = {
   images: { unoptimized: true },
   async rewrites() {
@@ -20,6 +24,7 @@ const nextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(microphone; self), geolocation=(self)" },
           { key: "X-DNS-Prefetch-Control", value: "on" },
+          ...hsts,
         ],
       },
       {

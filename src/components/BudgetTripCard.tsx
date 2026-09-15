@@ -25,7 +25,7 @@ interface Props {
 function ConfidenceBadge({ c }: { c: Line["confidence"] }) {
   if (c === "CONFIRMED") return <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 ring-1 ring-emerald-200">✓ Confirmed</span>;
   if (c === "ESTIMATE") return <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800 ring-1 ring-amber-200">~ Estimated</span>;
-  return <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600 ring-1 ring-slate-200">⚠ Provider confirmation</span>;
+  return <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600 ring-1 ring-slate-200">Provider confirmation</span>;
 }
 
 export default function BudgetTripCard({ budget, estimatedTotal, delta, possible, disclaimer, distance, lines, from, to, pax, days, onBookCheapest, compact }: Props) {
