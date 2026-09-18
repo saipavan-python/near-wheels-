@@ -43,3 +43,5 @@ export async function DELETE(req: NextRequest) {
   await prisma.favorite.delete({ where: { id: favoriteId } });
   return ok({ deleted: true });
 }
+
+export const dynamic = "force-dynamic";

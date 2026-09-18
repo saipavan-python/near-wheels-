@@ -33,3 +33,4 @@ export async function GET(req: NextRequest) {
     return fail("Could not fetch trip status", 500);
   }
 }
+export const dynamic = "force-dynamic";

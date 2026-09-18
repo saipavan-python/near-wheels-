@@ -43,3 +43,5 @@ export async function GET() {
     reviews: reviews.map((r) => ({ rating: r.rating, comment: r.comment, at: r.createdAt, by: r.customer.name || "Customer" })),
   });
 }
+
+export const dynamic = "force-dynamic";

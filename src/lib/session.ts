@@ -58,7 +58,11 @@ export function verifySessionToken(token: string | undefined | null): SessionPay
 
 /** Read the current session inside route handlers / server components. */
 export function getSession(): SessionPayload | null {
-  return verifySessionToken(cookies().get(COOKIE)?.value);
+  try {
+    return verifySessionToken(cookies().get(COOKIE)?.value);
+  } catch {
+    return null;
+  }
 }
 
 export function sessionCookieOptions() {

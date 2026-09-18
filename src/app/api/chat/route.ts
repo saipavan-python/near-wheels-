@@ -64,3 +64,5 @@ export async function POST(req: NextRequest) {
     return fail("The assistant hit an unexpected problem. Please try again.", 500);
   }
 }
+
+export const dynamic = "force-dynamic";

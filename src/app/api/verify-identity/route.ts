@@ -76,3 +76,4 @@ export async function POST(req: NextRequest) {
     message: "Identity documents submitted. Verification is pending review.",
   });
 }
+export const dynamic = "force-dynamic";

@@ -181,3 +181,5 @@ export async function GET(req: NextRequest) {
     return fail("Error fetching driving schools", 500);
   }
 }
+
+export const dynamic = "force-dynamic";

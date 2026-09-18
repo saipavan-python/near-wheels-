@@ -18,3 +18,5 @@ export async function GET(req: NextRequest) {
   });
   return ok({ rides });
 }
+
+export const dynamic = "force-dynamic";

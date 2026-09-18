@@ -88,3 +88,5 @@ export async function DELETE() {
   cookies().delete("nw_session");
   return ok({ loggedOut: true });
 }
+
+export const dynamic = "force-dynamic";

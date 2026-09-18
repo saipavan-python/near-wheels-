@@ -72,3 +72,5 @@ export async function DELETE(req: NextRequest) {
   await refreshProviderAggregates(review.providerId);
   return ok({ deleted: true });
 }
+
+export const dynamic = "force-dynamic";

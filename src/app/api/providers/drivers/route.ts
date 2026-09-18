@@ -170,3 +170,4 @@ export async function POST(req: NextRequest) {
     return fail(e?.message || "Could not add driver", 400);
   }
 }
+export const dynamic = "force-dynamic";

@@ -88,3 +88,5 @@ export async function POST(req: NextRequest) {
 
   return ok({ availability: record, message: `Asset marked unavailable: ${reason}` });
 }
+
+export const dynamic = "force-dynamic";

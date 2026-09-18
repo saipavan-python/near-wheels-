@@ -134,3 +134,4 @@ export async function POST(req: NextRequest) {
       return fail("Unknown action");
   }
 }
+export const dynamic = "force-dynamic";

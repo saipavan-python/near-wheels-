@@ -49,3 +49,5 @@ export async function POST(req: NextRequest) {
   clearLocationCache();
   return ok({ location: loc });
 }
+
+export const dynamic = "force-dynamic";

@@ -89,3 +89,5 @@ export async function POST(req: NextRequest) {
 
   return ok({ ride, message: "Your ride has been published successfully!" });
 }
+
+export const dynamic = "force-dynamic";

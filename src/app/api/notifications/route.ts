@@ -50,3 +50,4 @@ export async function POST() {
 
   return ok({ markedRead: r.count });
 }
+export const dynamic = "force-dynamic";

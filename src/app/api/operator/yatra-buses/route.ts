@@ -79,3 +79,4 @@ export async function POST(req: NextRequest) {
   });
   return ok({ package: created }, { status: 201 });
 }
+export const dynamic = "force-dynamic";

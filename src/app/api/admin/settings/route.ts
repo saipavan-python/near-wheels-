@@ -21,3 +21,5 @@ export async function PUT(req: NextRequest) {
   const settings = await saveSettings(b);
   return ok({ settings });
 }
+
+export const dynamic = "force-dynamic";

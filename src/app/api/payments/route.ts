@@ -96,3 +96,5 @@ export async function PUT(req: NextRequest) {
     return fail("Verification failed", 400);
   }
 }
+
+export const dynamic = "force-dynamic";

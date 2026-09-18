@@ -98,3 +98,5 @@ export async function DELETE(req: NextRequest) {
   }
   return ok({ deleted: true });
 }
+
+export const dynamic = "force-dynamic";

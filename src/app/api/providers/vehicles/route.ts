@@ -215,3 +215,5 @@ export async function POST(req: NextRequest) {
     return fail(e?.message || "Could not register vehicle", 400);
   }
 }
+
+export const dynamic = "force-dynamic";

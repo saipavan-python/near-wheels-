@@ -89,3 +89,5 @@ export async function POST(req: NextRequest) {
     return fail(e?.message || "Could not create booking", 400);
   }
 }
+
+export const dynamic = "force-dynamic";

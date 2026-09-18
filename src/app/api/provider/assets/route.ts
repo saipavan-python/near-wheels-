@@ -164,3 +164,5 @@ export async function POST(req: NextRequest) {
 
   return ok({ asset: vehicle, message: "Asset added successfully" });
 }
+
+export const dynamic = "force-dynamic";
