@@ -6,19 +6,25 @@ import { searchLocations, clearLocationCache } from "@/lib/services/locationServ
 
 export const runtime = "nodejs";
 
+/** Gazetteer is stable -> long-lived CDN cache. */
+const CACHE_CONTROL = "public, s-maxage=3600, stale-while-revalidate=3600";
+
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q") || "";
   const results = await searchLocations(q);
-  return ok({
-    locations: results.map((l) => ({
-      id: l.id,
-      name: l.name,
-      label: [l.name, l.type !== "CITY" ? l.type : null, l.district].filter(Boolean).join(", "),
-      lat: l.lat,
-      lng: l.lng,
-      type: l.type,
-    })),
-  });
+  return ok(
+    {
+      locations: results.map((l) => ({
+        id: l.id,
+        name: l.name,
+        label: [l.name, l.type !== "CITY" ? l.type : null, l.district].filter(Boolean).join(", "),
+        lat: l.lat,
+        lng: l.lng,
+        type: l.type,
+      })),
+    },
+    { headers: { "Cache-Control": CACHE_CONTROL } }
+  );
 }
 
 /** Admin gazetteer additions (kept minimal). */

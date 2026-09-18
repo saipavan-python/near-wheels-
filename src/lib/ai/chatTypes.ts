@@ -44,4 +44,5 @@ export interface ChatContext {
     destLng?: number;
   } | null;
   lastBookingCode?: string;
+  userLocation?: { lat: number; lng: number; label: string } | null;
 }

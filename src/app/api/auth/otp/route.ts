@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
-import { randomInt } from "crypto";
 import { prisma } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
 import { createSessionToken, sessionCookieOptions } from "@/lib/session";
 import { audit } from "@/lib/services/auditService";
+import { generateOtpCode, hashOtpCode, verifyOtpCode } from "@/lib/otp";
+import { sendOtpSms } from "@/lib/sms";
 
 export const runtime = "nodejs";
 
@@ -35,10 +36,19 @@ export async function POST(req: NextRequest) {
   const recentCount = await prisma.otpCode.count({ where: { phone, createdAt: { gte: new Date(Date.now() - 15 * 60_000) } } });
   if (recentCount >= 5) return fail("Too many OTPs for this number. Try again after 15 minutes.", 429);
 
-  const code = String(randomInt(100000, 1000000));
+  const code = generateOtpCode();
   await prisma.otpCode.create({
-    data: { phone, code, expiresAt: new Date(Date.now() + 5 * 60_000) },
+    data: { phone, code: hashOtpCode(code), expiresAt: new Date(Date.now() + 5 * 60_000) },
   });
+
+  try {
+    await sendOtpSms(phone, code);
+  } catch (sendErr) {
+    if (process.env.NODE_ENV === "production") {
+      return fail("SMS service is not configured. Please try again later.", 503);
+    }
+    console.warn("OTP send failed, continuing in dev mode:", (sendErr as Error).message);
+  }
 
   const isDev = process.env.NODE_ENV !== "production";
   return ok({
@@ -69,7 +79,7 @@ export async function PUT(req: NextRequest) {
     where: { phone, consumed: false, expiresAt: { gt: new Date() } },
     orderBy: { createdAt: "desc" },
   });
-  if (!otp || otp.code !== code) return fail("That OTP is invalid or expired");
+  if (!otp || !verifyOtpCode(otp.code, code)) return fail("That OTP is invalid or expired");
 
   await prisma.otpCode.update({ where: { id: otp.id }, data: { consumed: true } });
 

@@ -1,20 +1,39 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Bell, CheckCircle2, AlertTriangle, ShieldCheck } from "lucide-react";
+import { Bell, CheckCircle2, AlertTriangle, Info, ExternalLink } from "lucide-react";
+import { api } from "@/lib/ui";
+
+interface AppNotification {
+  id: string;
+  title: string;
+  body: string;
+  kind: string;
+  link: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
+function KindIcon({ kind }: { kind: string }) {
+  if (kind === "SUCCESS") return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
+  if (kind === "WARN") return <AlertTriangle className="h-4 w-4 text-amber-500" />;
+  if (kind === "ERROR") return <AlertTriangle className="h-4 w-4 text-red-600" />;
+  return <Info className="h-4 w-4 text-brand-600" />;
+}
 
 export default function ProviderNotificationsPage() {
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/notifications")
-      .then((r) => r.json())
-      .then((d) => {
-        setLoading(false);
-        if (d.ok) setNotifications(d.data?.notifications || []);
-      })
-      .catch(() => setLoading(false));
+    api<{ notifications: AppNotification[] }>("/api/notifications").then((d) => {
+      setLoading(false);
+      if (d.ok) {
+        setNotifications(d.data.notifications || []);
+        // Opening this page counts as reading them (stops the repeated alert).
+        fetch("/api/notifications", { method: "POST" }).catch(() => undefined);
+      }
+    });
   }, []);
 
   return (
@@ -36,20 +55,30 @@ export default function ProviderNotificationsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {notifications.map((n) => (
-            <div key={n.id} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600 font-bold">
-                <Bell className="h-4 w-4" />
-              </span>
-              <div>
-                <h4 className="font-bold text-ink text-sm">{n.title}</h4>
-                <p className="text-xs text-slate-600 mt-0.5">{n.body}</p>
-                <span className="mt-1.5 block text-[10px] text-slate-400">
-                  {new Date(n.createdAt).toLocaleString("en-IN")}
+          {notifications.map((n) => {
+            const Wrapper = n.link ? "a" : "div";
+            const extra = n.link ? { href: n.link, target: "_blank", rel: "noreferrer" } : {};
+            return (
+              <Wrapper
+                key={n.id}
+                {...(extra as any)}
+                className={`flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition ${n.link ? "hover:border-brand-200 hover:shadow-md" : ""} ${n.isRead ? "" : "bg-brand-50/50"}`}
+              >
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600 font-bold">
+                  <KindIcon kind={n.kind} />
                 </span>
-              </div>
-            </div>
-          ))}
+                <div className="min-w-0 flex-1">
+                  <h4 className={`text-sm ${n.isRead ? "font-semibold text-slate-700" : "font-bold text-ink"}`}>{n.title}</h4>
+                  <p className="mt-0.5 text-xs text-slate-600">{n.body}</p>
+                  <span className="mt-1.5 block text-[10px] text-slate-400">
+                    {new Date(n.createdAt).toLocaleString("en-IN")}
+                    {n.link && <span className="ml-2 inline-flex items-center gap-1 font-bold text-brand-700">Open <ExternalLink className="h-2.5 w-2.5" /></span>}
+                  </span>
+                </div>
+                {!n.isRead && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-brand-600" />}
+              </Wrapper>
+            );
+          })}
         </div>
       )}
     </div>

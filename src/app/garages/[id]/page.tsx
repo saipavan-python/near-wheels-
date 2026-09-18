@@ -4,6 +4,7 @@ import { cache } from "react";
 import { ArrowLeft, Star, BadgeCheck, MapPin, Clock, Wrench, Truck } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { findRuleForTarget, quoteFromRule } from "@/lib/services/pricingService";
+import { garageStatus } from "@/lib/services/garageHours";
 import { garageImage } from "@/lib/imagery";
 import BookingLauncher from "@/components/detail/BookingLauncher";
 import type { ResultCard } from "@/lib/types";
@@ -23,6 +24,7 @@ const SERVICE_LABELS: Record<string, string> = {
   AC_REPAIR: "AC repair",
   WATER_SERVICE: "Water wash & service point",
   BREAKDOWN: "Emergency breakdown",
+  EMERGENCY: "Emergency response",
 };
 
 export async function generateMetadata({ params }: { params: { id: string } }) {
@@ -47,7 +49,7 @@ export default async function GarageDetail({ params }: { params: { id: string } 
   const rule = await findRuleForTarget(p.id, "GARAGE", prof.id);
   const visitQuote = quoteFromRule(rule, {});
   const from = visitQuote?.total ?? null;
-  const availableNow = p.availabilityStatus === "AVAILABLE_NOW";
+  const st = garageStatus(prof, p);
 
   const card: ResultCard = {
     kind: "GARAGE",
@@ -58,7 +60,7 @@ export default async function GarageDetail({ params }: { params: { id: string } 
     category: "GARAGE_SERVICE",
     distanceKm: null,
     etaMin: null,
-    availableNow: availableNow || prof.open24x7,
+    availableNow: st.open,
     priceLabel: from != null ? `from ₹${Math.round(from).toLocaleString("en-IN")}` : "Ask for price",
     priceFrom: from,
     rating: p.ratingAvg,
@@ -97,7 +99,13 @@ export default async function GarageDetail({ params }: { params: { id: string } 
                 <span className="flex items-center gap-1"><MapPin className="h-4 w-4" /> {p.addressText || `${p.lat.toFixed(2)}, ${p.lng.toFixed(2)}`}</span>
               </p>
             </div>
-            {prof.open24x7 && <span className="badge bg-brand-500 px-3 py-1.5 text-white">Open 24×7</span>}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`badge px-3 py-1.5 ${st.open ? "bg-emerald-500 text-white" : "bg-paper-deep text-ink-mute"}`}>
+                <span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${st.open ? "bg-white" : "bg-ink-mute"}`} />
+                {st.open ? (st.label === "24×7" ? "Open 24×7" : "Open now") : st.detail}
+              </span>
+              {st.emergency && <span className="badge bg-red-50 px-3 py-1.5 text-red-600">⚡ Emergency response available</span>}
+            </div>
           </div>
 
           <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-3">

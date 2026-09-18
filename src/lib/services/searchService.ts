@@ -3,6 +3,7 @@ import { getSettings } from "../config";
 import { roadDistanceKm, etaMinutes, nextRadius } from "../geo";
 import { resolveLocation } from "./locationService";
 import { isAvailableNow, listActiveAvailabilitiesForVehicles, listActiveDriverAvailabilities, isRangeBlockedByAvailabilities, isDateBlockedByAvailabilities, startOfDay, endOfDay } from "./availabilityService";
+import { garageStatus } from "./garageHours";
 import { minVisiblePrice } from "./pricingService";
 import { trustBadges } from "./qualityService";
 import type { SearchFilters, SearchResult, ResultCard } from "../types";
@@ -580,7 +581,7 @@ export async function searchGarages(f: SearchFilters): Promise<SearchResult> {
     })
     .sort((a, b) => a.d - b.d);
 
-  const emergency = f.serviceTypes?.some((s) => ["BREAKDOWN", "TOWING", "BATTERY", "TYRE", "MECHANIC"].includes(s));
+  const emergency = f.serviceTypes?.some((s) => ["BREAKDOWN", "TOWING", "BATTERY", "TYRE", "MECHANIC", "EMERGENCY"].includes(s));
   const maxR = emergency ? settings.maxSearchRadiusKm : settings.immediateSearchRadiusKm * 2;
   const chosen = scored.filter((x) => x.d <= maxR).slice(0, 8);
 
@@ -591,35 +592,53 @@ export async function searchGarages(f: SearchFilters): Promise<SearchResult> {
     where: { ownerProviderId: { in: chosen.map((c) => c.p.id) }, active: true, targetType: "GARAGE_SERVICE" },
   });
 
+  // For emergency requests only respond with garages that are LIVE right now —
+  // opening hours drive availability automatically, no manual flips needed.
+  const now = new Date();
+
   const items: ResultCard[] = chosen
     .filter(({ p, profile }) => {
       if (booked.has(profile!.id)) return false;
       if (requestedRange && p.availabilityStatus === "OFFLINE") return false;
+      if (emergency && !garageStatus(profile!, p, now).open) return false;
       return true;
     })
     .map(({ p, d, profile }) => {
     const services: string[] = parse(profile!.services, []);
     const rule = rules.find((r) => r.ownerProviderId === p.id) || null;
     const priceFrom = minVisiblePrice(rule);
+    const st = garageStatus(profile!, p, now);
+    const statusTxt = st.label === "24×7" ? "24×7" : st.open ? st.detail : "Closed";
+    const badges = trustBadges(p).concat(st.emergency ? [{ label: "Emergency response", icon: "⚡" }] : []);
     return {
       kind: "GARAGE" as const,
       id: profile!.id,
       providerId: p.id,
       title: p.businessName,
-      subtitle: services.map(prettyService).join(" • ") + (profile!.open24x7 ? " • 24×7" : ""),
+      subtitle: [services.map(prettyService).join(" • ") || "Repairs & maintenance", statusTxt, st.emergency ? "Emergency" : ""].filter(Boolean).join(" • "),
       category: "GARAGE",
       distanceKm: d,
       etaMin: etaMinutes(d),
-      availableNow: !scheduledFor && (isAvailableNow(p) || (profile!.open24x7 && p.status === "ACTIVE")),
+      availableNow: !scheduledFor && st.open,
       priceLabel: priceFrom != null ? `visit from ${inr(priceFrom)}` : "price on request",
       priceFrom,
       rating: p.ratingAvg,
       verified: p.isVerified,
-      badges: trustBadges(p),
+      badges,
       emoji: "",
-      reason: d <= 5 && (isAvailableNow(p) || profile!.open24x7) ? "Can reach you quickly" : undefined,
+      reason: d <= 5 && st.open ? "Open now & nearby" : undefined,
       imageUrl: "/images/driver-profile.jpg",
-      meta: { open24x7: profile!.open24x7, pickupDrop: profile!.pickupDrop, services: services.join(", ") },
+      meta: {
+        openLabel: st.label,
+        openDetail: st.detail,
+        openNow: st.open,
+        open24x7: profile!.open24x7,
+        emergency: st.emergency,
+        opensAt: profile!.opensAt,
+        closesAt: profile!.closesAt,
+        pickupDrop: profile!.pickupDrop,
+        services: services.join(", "),
+      },
     };
   });
 

@@ -14,6 +14,9 @@ import type { SearchFilters } from "@/lib/types";
 
 export const runtime = "nodejs";
 
+/** Short-lived CDN cache (Vercel edge) so repeated searches don't hit the DB. */
+const CACHE_CONTROL = "public, s-maxage=30, stale-while-revalidate=120";
+
 const TYPES = ["vehicles", "drivers", "garages", "farm", "drones"] as const;
 type SearchType = (typeof TYPES)[number];
 
@@ -71,7 +74,7 @@ export async function GET(req: NextRequest) {
       default:
         result = await searchVehicles(f);
     }
-    return ok({ result });
+    return ok({ result }, { headers: { "Cache-Control": CACHE_CONTROL } });
   } catch (e: any) {
     if (e instanceof AmbiguousLocationError) {
       return Response.json(

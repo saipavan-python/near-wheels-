@@ -42,10 +42,26 @@ export async function POST(req: NextRequest) {
     // Allow booking without phone for now, but warn; phone will be required at payment
   }
 
+  // ── Identity gate: self-drive rentals require a driving licence on file ──
+  const kind = String(b.kind || "");
+  if (kind === "VEHICLE_SELF_DRIVE" && user) {
+    const verified = user.verificationStatus === "VERIFIED" || user.verificationStatus === "PENDING";
+    if (!verified) {
+      return ok(
+        {
+          ok: false,
+          code: "IDENTITY_REQUIRED",
+          error: "Self-drive rentals need your driving licence and ID on file before booking. Please complete identity verification.",
+        },
+        { status: 403 }
+      );
+    }
+  }
+
   try {
     const { booking, idempotentReplay } = await createBooking({
       customerId: session.userId,
-      kind: String(b.kind),
+      kind,
       listingKind: b.listingKind,
       listingId: b.listingId ? String(b.listingId) : undefined,
       vehicleId: b.vehicleId ? String(b.vehicleId) : undefined,

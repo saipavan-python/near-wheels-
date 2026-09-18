@@ -7,7 +7,7 @@ import LocationPicker from "./LocationPicker";
 import { getVehicleConfig, VEHICLE_CATEGORIES, type VehicleCategory } from "@/lib/vehicleConfig";
 import { BadgeCheck, Upload, X, ImageIcon, AlertTriangle, Check, CarFront, Bus, MapPin } from "lucide-react";
 
-const GARAGE_SERVICES = ["MECHANIC", "TOWING", "BATTERY", "TYRE", "ELECTRICAL", "AC_REPAIR", "WATER_SERVICE", "BREAKDOWN"];
+const GARAGE_SERVICES = ["MECHANIC", "TOWING", "BATTERY", "TYRE", "ELECTRICAL", "AC_REPAIR", "WATER_SERVICE", "BREAKDOWN", "EMERGENCY"];
 const EQUIPMENT = ["TRACTOR", "TRACTOR_TRAILER", "CULTIVATOR", "ROTAVATOR", "HARVESTER", "WATER_TANKER", "FARM_TRANSPORT", "AGRI_MACHINE"];
 
 export default function RegisterForm({ providerType }: { providerType: string }) {
@@ -51,6 +51,9 @@ export default function RegisterForm({ providerType }: { providerType: string })
   // garage
   const [gServices, setGServices] = useState<string[]>(["MECHANIC"]);
   const [g24x7, setG24x7] = useState(true);
+  const [gOpensAt, setGOpensAt] = useState("08:00");
+  const [gClosesAt, setGClosesAt] = useState("20:00");
+  const [gEmergency, setGEmergency] = useState(false);
 
   // farm
   const [fType, setFType] = useState("TRACTOR");
@@ -282,9 +285,12 @@ export default function RegisterForm({ providerType }: { providerType: string })
       case "DRIVER":
         body.profile = { experienceYears: dYears, licenseType: dLicense, licenseImageUrl: dLicenseImage || undefined };
         break;
-      case "GARAGE":
-        body.profile = { services: gServices.length ? gServices : ["MECHANIC"], open24x7: g24x7 };
+      case "GARAGE": {
+        const svcs = gServices.length ? gServices : ["MECHANIC"];
+        if (gEmergency && !svcs.includes("EMERGENCY")) svcs.push("EMERGENCY");
+        body.profile = { services: svcs, open24x7: g24x7, opensAt: gOpensAt, closesAt: gClosesAt, emergency: gEmergency };
         break;
+      }
       case "FARM":
         body.equipment = {
           equipmentType: fType,
@@ -826,6 +832,22 @@ export default function RegisterForm({ providerType }: { providerType: string })
           <label className="flex h-12 items-center gap-3 rounded-xl border border-ink/15 bg-white px-3">
             <input type="checkbox" checked={g24x7} onChange={(e) => setG24x7(e.target.checked)} className="h-5 w-5 rounded border-ink/20 accent-brand-600" />
             <span className="text-sm font-medium">Open 24×7 for breakdowns</span>
+          </label>
+          {!g24x7 && (
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="label">Opens at</span>
+                <input type="time" className="input h-12" value={gOpensAt} onChange={(e) => setGOpensAt(e.target.value)} />
+              </label>
+              <label className="block">
+                <span className="label">Closes at</span>
+                <input type="time" className="input h-12" value={gClosesAt} onChange={(e) => setGClosesAt(e.target.value)} />
+              </label>
+            </div>
+          )}
+          <label className="flex h-12 items-center gap-3 rounded-xl border border-ink/15 bg-white px-3">
+            <input type="checkbox" checked={gEmergency} onChange={(e) => setGEmergency(e.target.checked)} className="h-5 w-5 rounded border-ink/20 accent-brand-600" />
+            <span className="text-sm font-medium">Offer emergency / roadside response</span>
           </label>
         </>
       )}

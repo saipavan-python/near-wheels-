@@ -1,5 +1,5 @@
 import { prisma } from "../db";
-import { getSettings } from "../config";
+import { getSettings, FREE_MODE } from "../config";
 import { roadDistanceKm, etaMinutes } from "../geo";
 import { quoteFromRule, findRuleForTarget } from "./pricingService";
 import { reserveListingAtomic } from "./availabilityService";
@@ -8,7 +8,8 @@ import { notifyUser, notifyProvider } from "./notificationService";
 import { track } from "./analyticsService";
 import { audit } from "./auditService";
 import { canTransition, expireStaleHolds, publicBooking, InvalidTransitionError } from "./bookingState";
-import { bookingCode, json } from "../utils";
+import { roundMoney } from "./paymentGuard";
+import { bookingCode, json, tripOtp } from "../utils";
 import type { Booking } from "@prisma/client";
 
 export class BookingConflictError extends Error {
@@ -200,6 +201,7 @@ export async function createBooking(input: CreateBookingInput) {
         depositAmount: rule?.deposit ?? null,
         etaMin,
         distanceKm,
+        tripOtp: tripOtp(),
         notes: input.notes ?? "",
         idempotencyKey: input.idempotencyKey,
         holdExpiresAt: new Date(Date.now() + settings.providerResponseTimeoutSec * 1000),
@@ -216,11 +218,27 @@ export async function createBooking(input: CreateBookingInput) {
     listing.providerId,
     "New booking request",
     `New ${input.kind.replace(/_/g, " ").toLowerCase()} request.`,
-    "/providers/dashboard",
+    "/provider/dashboard",
     "BOOKING"
   );
 
-  if (!scheduledFor) await dispatchImmediate(booking.id);
+  if (FREE_MODE) {
+    // Free launch period: the booking is confirmed automatically — no payment.
+    if (booking.status !== "CONFIRMED") await moveStatus(booking.id, "CONFIRMED");
+    await prisma.provider.update({
+      where: { id: booking.providerId },
+      data: { totalRequests: { increment: 1 }, acceptedRequests: { increment: 1 } },
+    });
+    await notifyUser(
+      booking.customerId,
+      "Booking confirmed",
+      `Your booking (${booking.code}) with ${booking.providerName} is confirmed. No advance or payment needed right now.`,
+      "/bookings",
+      "SUCCESS"
+    );
+  } else if (!scheduledFor) {
+    await dispatchImmediate(booking.id);
+  }
 
   const fresh = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
   return { booking: fresh, idempotentReplay: false };
@@ -256,18 +274,63 @@ export async function moveStatus(bookingId: string, next: string) {
 export async function cancelBooking(bookingId: string, actorRole: string, reason?: string) {
   const b = await prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
   const updated = await moveStatus(bookingId, "CANCELLED");
-  await prisma.booking.update({ where: { id: bookingId }, data: { cancelReason: reason || "" } });
-  await audit(actorRole, undefined, "CANCEL_BOOKING", "Booking", bookingId, { reason });
+
+  // Cancellation policy: free before the window, else a fee on the total.
+  const settings = await getSettings();
+  let cancelFee = 0;
+  let refundAmount: number | null = null;
+  const paid = b.paymentStatus === "PAID";
+  const late =
+    b.scheduledFor &&
+    b.scheduledFor.getTime() - Date.now() < settings.cancellationWindowHours * 3600_000;
+  if (paid && (late || ["ACCEPTED", "CONFIRMED", "EN_ROUTE", "IN_PROGRESS"].includes(b.status))) {
+    cancelFee = roundMoney(b.totalAmount * settings.cancellationFeePercent);
+    refundAmount = roundMoney(Math.max(0, b.totalAmount - cancelFee));
+  } else if (paid) {
+    refundAmount = b.totalAmount;
+  }
+
+  await prisma.booking.update({
+    where: { id: bookingId },
+    data: {
+      cancelReason: reason || "",
+      cancellationFee: cancelFee > 0 ? cancelFee : null,
+      refundAmount,
+      cancelledAt: new Date(),
+    },
+  });
+
+  await audit(actorRole, undefined, "CANCEL_BOOKING", "Booking", bookingId, { reason, cancelFee });
+
+  // Auto-refund the customer through the payment pipeline (idempotent).
+  let refundMessage = "";
+  if (paid) {
+    const pay = await prisma.payment.findFirst({
+      where: { bookingId, status: "SUCCESS" },
+      orderBy: { createdAt: "desc" },
+    });
+    if (pay) {
+      try {
+        const { refundPayment } = await import("./paymentService");
+        const res = await refundPayment(pay.id, { amount: refundAmount ?? undefined, leaveBookingStatus: true });
+        refundMessage = res?.refunded ? ` ₹${refundAmount} refunded.` : "";
+      } catch {
+        refundMessage = "";
+      }
+    }
+  }
+
   await Promise.all([
-    notifyUser(b.customerId, "Booking cancelled", `${b.code} was cancelled.`, "/bookings", "WARN"),
-    notifyProvider(b.providerId, "Booking cancelled", `${b.code} was cancelled by the customer.`, "/providers/dashboard", "WARN"),
+    notifyUser(b.customerId, "Booking cancelled", `${b.code} was cancelled.${cancelFee > 0 ? ` A ₹${cancelFee} cancellation fee applies.` : " Full refund processed."}${refundMessage}`, "/bookings", "WARN"),
+    notifyProvider(b.providerId, "Booking cancelled", `${b.code} was cancelled by the customer.`, "/provider/dashboard", "WARN"),
     prisma.provider.update({ where: { id: b.providerId }, data: { cancelledJobs: { increment: 1 }, availabilityStatus: "AVAILABLE_NOW" } }).catch(() => undefined),
   ]);
-  return updated;
+  return { ...updated, cancellationFee: cancelFee };
 }
 
 export async function completeBooking(bookingId: string) {
   const b = await moveStatus(bookingId, "COMPLETED");
+  await prisma.booking.update({ where: { id: bookingId }, data: { endedAt: new Date() } });
   await prisma.provider.update({
     where: { id: b.providerId },
     data: {
@@ -278,6 +341,53 @@ export async function completeBooking(bookingId: string) {
   await prisma.payout.updateMany({ where: { bookingId }, data: { status: "PROCESSING" } });
   await notifyUser(b.customerId, "Service completed", `${b.code} is complete. How did it go? Leave a review.`, "/bookings", "SUCCESS");
   return b;
+}
+
+/** Verify the rider's trip OTP. Wrong OTP throws; correct OTP is recorded. */
+export async function verifyTripOtp(bookingId: string, otp: string | null | undefined, phase: "PICKUP" | "DROPOFF"): Promise<boolean> {
+  const b = await prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
+  if (!b.tripOtp) throw new Error("No trip OTP has been generated for this booking");
+  if (!otp || otp.trim() !== b.tripOtp) return false;
+  await prisma.booking.update({
+    where: { id: bookingId },
+    data: phase === "PICKUP" ? { otpVerifiedAt: new Date() } : { endOtpVerifiedAt: new Date() },
+  });
+  return true;
+}
+
+/** Start a trip: rider OTP verified + pickup photo evidence captured. */
+export async function startTrip(bookingId: string, otp: string | null | undefined, pickupPhotoUrl?: string) {
+  const b = await prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
+  if (!["CONFIRMED", "EN_ROUTE", "ACCEPTED"].includes(b.status)) throw new InvalidTransitionError(`Cannot start trip from ${b.status}`);
+  const okOtp = await verifyTripOtp(bookingId, otp, "PICKUP");
+  if (!okOtp) throw new Error("The trip OTP did not match. Ask the rider for the correct code.");
+  const updated = await moveStatus(bookingId, "IN_PROGRESS");
+  await prisma.booking.update({
+    where: { id: bookingId },
+    data: { startedAt: new Date(), pickupPhotoUrl: pickupPhotoUrl || b.pickupPhotoUrl },
+  });
+  await notifyUser(b.customerId, "Trip started", `${b.code} has started.`, "/bookings", "INFO");
+  return { ...updated, otpVerified: true };
+}
+
+/** Complete a trip: end OTP verified + dropoff photo evidence captured. */
+export async function completeTrip(bookingId: string, otp: string | null | undefined, dropoffPhotoUrl?: string) {
+  const b = await prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
+  if (!["IN_PROGRESS"].includes(b.status)) throw new InvalidTransitionError(`Cannot complete trip from ${b.status}`);
+  const okOtp = await verifyTripOtp(bookingId, otp, "DROPOFF");
+  if (!okOtp) throw new Error("The trip OTP did not match. Ask the rider for the correct code.");
+  await prisma.booking.update({
+    where: { id: bookingId },
+    data: { dropoffPhotoUrl: dropoffPhotoUrl || b.dropoffPhotoUrl, endedAt: new Date() },
+  });
+  const updated = await moveStatus(bookingId, "COMPLETED");
+  await prisma.provider.update({
+    where: { id: b.providerId },
+    data: { completedJobs: { increment: 1 }, availabilityStatus: "AVAILABLE_NOW" },
+  });
+  await prisma.payout.updateMany({ where: { bookingId }, data: { status: "PROCESSING" } });
+  await notifyUser(b.customerId, "Service completed", `${b.code} is complete. How did it go? Leave a review.`, "/bookings", "SUCCESS");
+  return { ...updated, otpVerified: true };
 }
 
 export async function modifyBookingSchedule(
@@ -320,7 +430,7 @@ export async function bookingsForCustomer(customerId: string, take?: number) {
     where: { customerId },
     orderBy: { createdAt: "desc" },
     take: take ?? 200,
-    include: { payments: true, review: true },
+    include: { payments: true, review: true, vehicle: true, driver: true },
   });
   return rows.map(publicBookingWithExtras);
 }
@@ -330,7 +440,13 @@ export async function bookingsForProvider(providerId: string, take?: number) {
     where: { providerId },
     orderBy: { createdAt: "desc" },
     take: take ?? 200,
-    include: { payments: true, review: true },
+    include: {
+      payments: true,
+      review: true,
+      vehicle: true,
+      driver: true,
+      customer: { select: { name: true, phone: true } },
+    },
   });
   return rows.map(publicBookingWithExtras);
 }
@@ -338,16 +454,80 @@ export async function bookingsForProvider(providerId: string, take?: number) {
 export async function getPublicBooking(idOrCode: string) {
   const b = await prisma.booking.findFirst({
     where: { OR: [{ id: idOrCode }, { code: idOrCode.toUpperCase() }] },
-    include: { payments: true, review: true },
+    include: { payments: true, review: true, vehicle: true, driver: true },
   });
   return b ? publicBookingWithExtras(b) : null;
 }
 
-function publicBookingWithExtras(
-  b: Booking & { payments: unknown[]; review: unknown }
-) {
+/** Resolve the driver + vehicle snapshot a rider should see for a booking. */
+export async function bookingRiderDetails(bookingId: string) {
+  const b = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: { driver: true, vehicle: true },
+  });
+  if (!b) return null;
   return {
-    ...publicBooking(b),
+    driver: b.driver
+      ? {
+          name: b.driver.name,
+          photoUrl: b.driver.photoUrl,
+          phone: b.driver.phone,
+          rating: b.driver.rating,
+          licenseVerified: (b.driver.licenseStatus || "PENDING") === "APPROVED",
+          verified: (b.driver.verificationStatus || "PENDING") === "VERIFIED",
+        }
+      : null,
+    vehicle: b.vehicle
+      ? {
+          title: b.vehicle.title,
+          make: b.vehicle.make,
+          model: b.vehicle.model,
+          category: b.vehicle.category,
+          registrationNumber: b.vehicle.registrationNumber,
+          color: b.vehicle.color,
+          imageUrl: b.vehicle.imageUrl,
+          seats: b.vehicle.seats,
+          fuelType: b.vehicle.fuelType,
+          transmission: b.vehicle.transmission,
+        }
+      : null,
+  };
+}
+
+function publicBookingWithExtras(
+  b: Booking & { payments: unknown[]; review: unknown; vehicle?: unknown; driver?: unknown; customer?: { name: string | null; phone: string | null } | null }
+) {
+  const base = publicBooking(b);
+  const v = b.vehicle as
+    | { id: string; title: string; make: string; model: string; category: string; registrationNumber: string | null; color?: string | null; imageUrl: string | null; seats: number; fuelType: string | null; transmission: string | null }
+    | null
+    | undefined;
+  const d = b.driver as
+    | { id: string; name: string; phone: string | null; photoUrl: string | null; rating: number }
+    | null
+    | undefined;
+  return {
+    ...base,
+    customerPhone: b.customer?.phone ?? null,
+    customerName: b.customer?.name ?? null,
+    vehicle: v
+      ? {
+          id: v.id,
+          title: v.title,
+          make: v.make,
+          model: v.model,
+          category: v.category,
+          registrationNumber: v.registrationNumber,
+          color: v.color ?? null,
+          imageUrl: v.imageUrl,
+          seats: v.seats,
+          fuelType: v.fuelType,
+          transmission: v.transmission,
+        }
+      : null,
+    driver: d
+      ? { id: d.id, name: d.name, photoUrl: d.photoUrl, phone: d.phone, rating: d.rating }
+      : null,
     payments: Array.isArray(b.payments)
       ? (b.payments as { id: string; status: string; amount: number; gatewayRef: string | null }[]).map((p) => ({
           id: p.id,

@@ -31,7 +31,7 @@ function cardImage(c: ResultCard): string {
   }
 }
 
-export function AvailabilityPill({ available }: { available: boolean }) {
+export function AvailabilityPill({ available, label }: { available: boolean; label?: string }) {
   return (
     <span
       className={`badge px-2.5 py-1 shadow-sm ${
@@ -42,7 +42,7 @@ export function AvailabilityPill({ available }: { available: boolean }) {
         {available && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />}
         <span className={`relative inline-flex h-1.5 w-1.5 rounded-full ${available ? "bg-white" : "bg-white/60"}`} />
       </span>
-      {available ? "Available now" : "Scheduled only"}
+      {label ?? (available ? "Available now" : "Scheduled only")}
     </span>
   );
 }
@@ -67,6 +67,16 @@ export default function ResultCardView({
 }) {
   const dist = card.distanceKm != null ? `${card.distanceKm.toFixed(1)} km` : null;
 
+  // Garages show live open/closed state driven by their registered opening hours.
+  const garagePill =
+    card.kind === "GARAGE"
+      ? card.availableNow
+        ? "Open now"
+        : typeof card.meta.openDetail === "string"
+          ? card.meta.openDetail
+          : "Closed now"
+      : undefined;
+
   if (compact) {
     return (
       <article className={`card card-lift relative overflow-hidden p-3 ${selected ? "ring-2 ring-brand-500" : ""}`}>
@@ -81,7 +91,7 @@ export default function ResultCardView({
             <h3 className="truncate text-sm font-bold">{card.title}</h3>
             <p className="mt-0.5 truncate text-xs text-ink-mute">{card.subtitle}</p>
             <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] font-medium text-ink-mute">
-              <AvailabilityPill available={card.availableNow} />
+              <AvailabilityPill available={card.availableNow} label={garagePill} />
               {dist && <span>{dist}{card.etaMin != null ? ` · ${card.etaMin} min` : ""}</span>}
               {card.rating > 0 && (
                 <span className="inline-flex items-center gap-0.5 font-bold text-ink">
@@ -128,7 +138,7 @@ export default function ResultCardView({
           </span>
         )}
 
-        <span className="absolute right-3 top-3"><AvailabilityPill available={card.availableNow} /></span>
+        <span className="absolute right-3 top-3"><AvailabilityPill available={card.availableNow} label={garagePill} /></span>
 
         <span
           aria-hidden

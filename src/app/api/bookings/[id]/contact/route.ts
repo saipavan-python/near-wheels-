@@ -14,11 +14,12 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
     include: {
       provider: { select: { businessName: true, phone: true, addressText: true } },
       customer: { select: { name: true, phone: true, email: true } },
+      driver: { select: { name: true, phone: true, photoUrl: true, rating: true, verificationStatus: true, licenseStatus: true, experienceYears: true } },
+      vehicle: { select: { title: true, make: true, model: true, category: true, registrationNumber: true, color: true, imageUrl: true, seats: true, fuelType: true, transmission: true } },
     },
   });
   if (!booking) return fail("Booking not found", 404);
 
-  // Only participants can see contact, and only when CONFIRMED (or later)
   const isCustomer = booking.customerId === session.userId;
   const isProviderOwner = await (async () => {
     if (session.role === "PROVIDER") {
@@ -31,7 +32,7 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
 
   if (!isCustomer && !isProviderOwner && !isAdmin) return fail("Not your booking", 403);
 
-  // Contact hidden before CONFIRMED
+  // Contact hidden before CONFIRMED (for non-admins)
   const allowedStatuses = ["CONFIRMED", "EN_ROUTE", "IN_PROGRESS", "COMPLETED"];
   if (!allowedStatuses.includes(booking.status) && !isAdmin) {
     return ok({
@@ -41,9 +42,35 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
     });
   }
 
-  // Return minimal permitted contact
+  // Return minimal permitted contact + driver/vehicle details
+  const driver = booking.driver
+    ? {
+        name: booking.driver.name,
+        phone: booking.driver.phone,
+        photoUrl: booking.driver.photoUrl,
+        rating: booking.driver.rating,
+        verified: (booking.driver.verificationStatus || "PENDING") === "VERIFIED",
+        licenseVerified: (booking.driver.licenseStatus || "PENDING") === "APPROVED",
+        experienceYears: booking.driver.experienceYears,
+      }
+    : null;
+
+  const vehicle = booking.vehicle
+    ? {
+        title: booking.vehicle.title,
+        make: booking.vehicle.make,
+        model: booking.vehicle.model,
+        category: booking.vehicle.category,
+        registrationNumber: booking.vehicle.registrationNumber,
+        color: booking.vehicle.color,
+        imageUrl: booking.vehicle.imageUrl,
+        seats: booking.vehicle.seats,
+        fuelType: booking.vehicle.fuelType,
+        transmission: booking.vehicle.transmission,
+      }
+    : null;
+
   if (isCustomer || isAdmin) {
-    // Customer sees provider contact
     return ok({
       allowed: true,
       provider: {
@@ -51,11 +78,12 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
         phone: booking.provider.phone,
         addressText: booking.provider.addressText,
       },
+      driver,
+      vehicle,
       bookingCode: booking.code,
       status: booking.status,
     });
   } else {
-    // Provider sees customer contact
     return ok({
       allowed: true,
       customer: {
@@ -63,6 +91,8 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
         phone: booking.customer.phone,
         email: booking.customer.email,
       },
+      driver,
+      vehicle,
       bookingCode: booking.code,
       status: booking.status,
     });

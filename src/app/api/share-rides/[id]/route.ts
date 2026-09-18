@@ -46,7 +46,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const totalAmount = seatsBooked * ride.pricePerSeat;
 
     // Platform commission per booked seat (audit trail on every booking)
-    const COMMISSION_PCT = Number(process.env.SHARE_RIDE_COMMISSION_PCT || 15);
+    const COMMISSION_PCT = Number(process.env.SHARE_RIDE_COMMISSION_PCT || 0);
     const platformFee = Math.round(totalAmount * COMMISSION_PCT / 100);
 
     const booking = await prisma.sharedRideBooking.create({
@@ -60,6 +60,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         platformFee,
         message,
         status: "ACCEPTED", // Auto-confirm
+        tripOtp: String(Math.floor(100000 + Math.random() * 900000)),
       },
     });
 

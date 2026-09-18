@@ -88,5 +88,6 @@ export function contextSummaryForChat(ctx: ChatContext): string {
     parts.push(`pending booking draft: ${JSON.stringify(ctx.pendingBooking)}`);
   }
   if (ctx.lastBookingCode) parts.push(`latest booking code: ${ctx.lastBookingCode}`);
+  if (ctx.userLocation) parts.push(`user current location (GPS): ${ctx.userLocation.label} (${ctx.userLocation.lat}, ${ctx.userLocation.lng})`);
   return parts.length ? parts.join(" | ") : "empty — no search yet";
 }

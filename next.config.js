@@ -8,6 +8,7 @@ const hsts = process.env.NODE_ENV === "production"
   : [];
 
 const nextConfig = {
+  poweredByHeader: false,
   images: { unoptimized: true },
   async rewrites() {
     return [
@@ -27,10 +28,10 @@ const nextConfig = {
           ...hsts,
         ],
       },
-      {
-        source: "/api/(.*)",
-        headers: [{ key: "Cache-Control", value: "no-store" }],
-      },
+      // API responses are NOT cached by default (dynamic route handlers).
+      // Cache-Control for the fast public READ endpoints is set per-route in
+      // their handlers (search, locations, share-rides) so only safe,
+      // authenticated-to-everyone payloads get CDN-cached on the edge.
       { source: "/admin/:path*",  headers: noIndexHeaders },
       { source: "/account",       headers: noIndexHeaders },
       { source: "/bookings",      headers: noIndexHeaders },

@@ -185,7 +185,7 @@ export default function BookingSheet({
         onClick={(e) => e.stopPropagation()}
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
-        {booking && payState === "SUCCESS" ? (
+        {booking && (payState === "SUCCESS" || booking.status === "CONFIRMED" || booking.status === "COMPLETED") ? (
           <SuccessBody booking={booking} onClose={onClose} />
         ) : (
           <>
@@ -367,7 +367,7 @@ export default function BookingSheet({
                   </ul>
                 ) : (
                   <p className="text-sm text-slate-500">
-                    Final pricing is set by the provider — you&apos;ll see it on the booking before payment.
+                    Final pricing is set by the provider — you&apos;ll see it on the booking before you confirm.
                   </p>
                 )}
                 {quote?.disclaimer && <p className="mt-2 text-xs text-slate-500">{quote.disclaimer}</p>}
@@ -379,16 +379,15 @@ export default function BookingSheet({
                   <p className="font-semibold">
                     {booking.status === "PENDING_PROVIDER"
                       ? "Request sent to provider — waiting for acceptance."
-                      : ["ACCEPTED", "CONFIRMED"].includes(booking.status)
+                      : booking.status === "CONFIRMED"
+                      ? "Booking confirmed."
+                      : ["ACCEPTED"].includes(booking.status)
                       ? "Provider accepted your request."
                       : `Status: ${booking.status}`}
                   </p>
                   <p className="mt-1 text-xs">
                     Booking code <strong>{booking.code}</strong> · {fmtWhen(booking.scheduledFor)}
                   </p>
-                  {booking.depositAmount ? (
-                    <p className="mt-1 text-xs">Refundable security deposit {inr(booking.depositAmount)} payable at pickup.</p>
-                  ) : null}
 
                   {payState !== "SUCCESS" && ["ACCEPTED", "PENDING_PROVIDER"].includes(booking.status) && (
                     <div className="mt-3 space-y-2">
@@ -451,9 +450,9 @@ function SuccessBody({ booking, onClose }: { booking: PublicBooking; onClose: ()
       <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
         <IconCheck className="h-8 w-8 text-emerald-600" />
       </div>
-      <h2 className="mt-4 text-xl font-bold"> Payment successful</h2>
+      <h2 className="mt-4 text-xl font-bold"> Booking confirmed</h2>
       <p className="mt-1 text-sm text-slate-500">
-        {booking.listingTitle} with {booking.providerName} is confirmed.
+        {booking.listingTitle} with {booking.providerName} — no payment needed right now.
       </p>
       <p className="mt-4 inline-block rounded-xl bg-slate-100 px-4 py-2 font-mono text-sm font-bold tracking-wider">
         {booking.code}

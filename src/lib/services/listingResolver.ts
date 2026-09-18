@@ -1,5 +1,6 @@
 import { prisma } from "../db";
 import { isAvailableNow } from "./availabilityService";
+import { garageStatus } from "./garageHours";
 import type {
   Vehicle,
   DriverProfile,
@@ -58,7 +59,7 @@ export async function resolveListing(input: {
     const g = await prisma.garageProfile.findUnique({ where: { id: input.listingId }, include: { provider: true } });
     if (!g || g.provider.status !== "ACTIVE") throw new ListingUnavailableError("Garage not available");
     const p = g.provider as Providerish;
-    return base(p, g.id, null, p.businessName, p.businessName, "GARAGE_SERVICE", isAvailableNow(p) || g.open24x7);
+    return base(p, g.id, null, p.businessName, p.businessName, "GARAGE_SERVICE", garageStatus(g, p).open);
   }
   if (kind === "FARM") {
     const e = await prisma.farmEquipment.findUnique({ where: { id: input.listingId }, include: { provider: true } });

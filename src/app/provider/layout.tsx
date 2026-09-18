@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard, CarFront, Calendar, UserRound, Wrench, FileText, MessageSquare, Bell, DollarSign, Star, TrendingUp, Users, Settings, LogOut, Sparkles, ChevronRight, Menu, X, ArrowLeft, ShieldAlert
 } from "lucide-react";
+import NotificationBell from "@/components/NotificationBell";
 
 const SIDEBAR_ITEMS = [
   { href: "/provider/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -78,9 +79,12 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
         <Link href="/" className="flex items-center gap-2 font-display text-sm font-extrabold text-brand-700">
           <CarFront className="h-5 w-5 text-brand-600" /> Near Wheels Provider
         </Link>
-        <button onClick={() => setMobileOpen(!mobileOpen)} className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200">
-          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <NotificationBell signedIn={!!authData?.user} />
+          <button onClick={() => setMobileOpen(!mobileOpen)} className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200">
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
 
       {/* Sidebar Navigation */}
@@ -93,10 +97,13 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
           <div>
             {/* Header / Mode switch link */}
             <div className="mb-6 border-b border-slate-100 pb-4">
-              <Link href="/" className="flex items-center gap-2 font-display text-base font-extrabold text-ink">
-                <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand-600 text-white font-bold text-sm">NW</span>
-                <span>Provider Hub</span>
-              </Link>
+              <div className="flex items-center justify-between">
+                <Link href="/" className="flex items-center gap-2 font-display text-base font-extrabold text-ink">
+                  <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand-600 text-white font-bold text-sm">NW</span>
+                  <span>Provider Hub</span>
+                </Link>
+                <NotificationBell signedIn={!!authData?.user} />
+              </div>
               <div className="mt-3 flex items-center justify-between rounded-xl bg-slate-100 p-1.5 text-xs font-bold">
                 <Link href="/" className="flex-1 text-center py-1 text-slate-600 hover:text-ink">Customer</Link>
                 <span className="flex-1 text-center py-1 rounded-lg bg-white text-brand-700 shadow-sm">Provider</span>

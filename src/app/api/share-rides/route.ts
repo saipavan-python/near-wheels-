@@ -5,6 +5,9 @@ import { getSession } from "@/lib/session";
 
 export const runtime = "nodejs";
 
+/** Public ride search -> short-lived CDN cache (Vercel edge), SWR on top. */
+const CACHE_CONTROL = "public, s-maxage=30, stale-while-revalidate=120";
+
 /**
  * GET /api/share-rides
  * Search offered rides with filters: from, to, date
@@ -34,7 +37,7 @@ export async function GET(req: NextRequest) {
     take: 50,
   });
 
-  return ok({ rides });
+  return ok({ rides }, { headers: { "Cache-Control": CACHE_CONTROL } });
 }
 
 /**

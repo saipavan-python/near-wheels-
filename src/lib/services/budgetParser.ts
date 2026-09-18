@@ -141,9 +141,12 @@ function extractLocations(text: string): { from?: string; to?: string } {
     lower.match(/([A-Za-z]+)\s+to\s+([A-Za-z]+)/i);
   if (toMatch) return { from: toMatch[1].trim(), to: toMatch[2].trim() };
 
-  // Single destination: "to Guntur", "Guntur ki"
-  const single = lower.match(/(?:to|ki|ku|వెళ్లాలి)\s*([A-Za-z\u0C00-\u0C7F]+)/i);
-  if (single) return { to: single[1].trim() };
+  // Single destination — two real patterns:
+  //  EN "to X" (preposition before place) and  TE "X ki/ku/వెళ్లాలి" (dative after place).
+  const withTo = lower.match(/(?:^|\s)to\s+([A-Za-z\u0C00-\u0C7F]+)/i);
+  if (withTo) return { to: withTo[1].trim() };
+  const dativeSuffix = lower.match(/([A-Za-z\u0C00-\u0C7F]{3,30})\s+(?:ki|ku|వెళ్లాలి)\b/i);
+  if (dativeSuffix) return { to: dativeSuffix[1].trim() };
 
   // Village phrase "my village to Guntur"
   const village = lower.match(/(?:village|ooru|ఊరి)\s*(?:నుంచి|to|→)?\s*([A-Za-z\u0C00-\u0C7F]+)/i);

@@ -1,5 +1,5 @@
 ﻿import { prisma } from "../db";
-import { getSettings } from "../config";
+import { getSettings, FREE_MODE } from "../config";
 import { moveStatus } from "./bookingService";
 import { notifyUser, notifyProvider } from "./notificationService";
 import { audit } from "./auditService";
@@ -47,6 +47,9 @@ async function fetchCapturedPayment(orderId: string | null): Promise<{ id: strin
  * an auditable record. "Payment successful" only ever comes from here.
  */
 export async function initiatePayment(bookingId: string) {
+  if (FREE_MODE) {
+    throw new Error("Payments are turned off right now — Near Wheels is free to use during launch.");
+  }
   const booking = await prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
   if (!["ACCEPTED", "PENDING_PROVIDER", "REQUESTED"].includes(booking.status))
     throw new Error("Booking is not payable in its current state");
@@ -144,7 +147,7 @@ export async function verifyPayment(gatewayRef: string, outcome: "success" | "fa
           include: { plan: true },
         });
         const planCode = (sub?.plan.code as keyof typeof settings.commissionRates) || "FREE";
-        const rate = sub?.plan.commissionRate ?? settings.commissionRates[planCode] ?? settings.commissionRates.FREE;
+        const rate = FREE_MODE ? 0 : (sub?.plan.commissionRate ?? settings.commissionRates[planCode] ?? settings.commissionRates.FREE);
         const commission = roundMoney(freshBooking.totalAmount * rate);
         const netAmount = roundMoney(freshBooking.totalAmount - commission);
 
@@ -207,7 +210,7 @@ export async function verifyPayment(gatewayRef: string, outcome: "success" | "fa
       booking.providerId,
       "Booking confirmed",
       `${booking.code} confirmed. Payout ₹${settled.netAmount} after commission.`,
-      "/providers/dashboard",
+      "/provider/dashboard",
       "SUCCESS"
     ),
   ]);
@@ -215,9 +218,13 @@ export async function verifyPayment(gatewayRef: string, outcome: "success" | "fa
   return { status: "SUCCESS" as const, bookingCode: booking.code };
 }
 
-export async function refundPayment(paymentId: string) {
+export async function refundPayment(
+  paymentId: string,
+  opts: { amount?: number; leaveBookingStatus?: boolean } = {}
+) {
   const payment = await prisma.payment.findUniqueOrThrow({ where: { id: paymentId } });
   if (payment.status !== "SUCCESS") throw new Error("Only successful payments can be refunded");
+  const refundAmount = opts.amount ?? payment.amount;
 
   if (payment.mode === "razorpay") {
     // Resolve the gateway PAYMENT id (gatewayRef is the order id).
@@ -241,7 +248,8 @@ export async function refundPayment(paymentId: string) {
 
     let refundStatus: string | undefined;
     try {
-      const result: any = await razorpayClient.payments.refund(gatewayPaymentId, { speed: "optimum" });
+      const amt = Math.max(1, Math.round(refundAmount * 100));
+      const result: any = await razorpayClient.payments.refund(gatewayPaymentId, { speed: "optimum", amount: amt });
       refundStatus = result?.status;
     } catch (e: any) {
       await audit("ADMIN", undefined, "REFUND_PAYMENT_FAILED", "Payment", paymentId, { reason: e?.message || "gateway error" });
@@ -257,10 +265,14 @@ export async function refundPayment(paymentId: string) {
   await prisma.payment.update({ where: { id: paymentId }, data: { status: "REFUNDED", refundedAt: new Date() } });
   const booking = await prisma.booking.update({
     where: { id: payment.bookingId },
-    data: { paymentStatus: "REFUNDED", status: "REFUNDED" },
+    data: {
+      paymentStatus: "REFUNDED",
+      ...(opts.leaveBookingStatus ? {} : { status: "REFUNDED" }),
+      ...(refundAmount != null ? { refundAmount } : {}),
+    },
   });
   await prisma.payout.deleteMany({ where: { bookingId: booking.id, status: { in: ["PENDING", "PROCESSING"] } } });
-  await notifyUser(booking.customerId, "Refund processed", `₹${payment.amount} refunded for ${booking.code}.`, "/bookings", "INFO");
-  await audit("ADMIN", undefined, "REFUND_PAYMENT", "Payment", paymentId, { amount: payment.amount });
-  return { refunded: true };
+  await notifyUser(booking.customerId, "Refund processed", `₹${refundAmount} refunded for ${booking.code}.`, "/bookings", "INFO");
+  await audit("ADMIN", undefined, "REFUND_PAYMENT", "Payment", paymentId, { amount: refundAmount });
+  return { refunded: true, amount: refundAmount };
 }

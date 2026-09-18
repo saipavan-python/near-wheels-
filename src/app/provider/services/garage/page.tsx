@@ -14,6 +14,7 @@ const GARAGE_SERVICES = [
   "BREAKDOWN",
   "TYRE",
   "BATTERY",
+  "EMERGENCY",
 ];
 
 export default function GarageManagementPage() {
@@ -63,7 +64,7 @@ export default function GarageManagementPage() {
     setMsg(null);
 
     const payload = {
-      action: "UPDATE_GARAGE",
+      action: "update_garage",
       garage: {
         open24x7,
         opensAt,
@@ -144,6 +145,19 @@ export default function GarageManagementPage() {
               </label>
             </div>
           </div>
+
+          {!open24x7 && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="label">Opens at</label>
+                <input type="time" className="input h-11" value={opensAt} onChange={(e) => setOpensAt(e.target.value)} />
+              </div>
+              <div>
+                <label className="label">Closes at</label>
+                <input type="time" className="input h-11" value={closesAt} onChange={(e) => setClosesAt(e.target.value)} />
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
             <Link href="/provider/services" className="btn-outline !py-2.5 !px-5 text-xs font-bold">

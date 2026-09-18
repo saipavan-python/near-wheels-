@@ -5,6 +5,7 @@ import { Star, BadgeCheck, Users, Wrench, CarFront, ArrowRight } from "lucide-re
 import { prisma } from "@/lib/db";
 import { vehicleImage, garageImage, portraitImage } from "@/lib/imagery";
 import { haversineKm } from "@/lib/geo";
+import { garageStatus } from "@/lib/services/garageHours";
 import { siteUrl } from "@/lib/seo";
 
 export const revalidate = 3600;
@@ -122,7 +123,14 @@ export default async function LocationPage({ params }: { params: { slug: string 
                     <p className="truncate font-display font-bold text-ink">{g.provider.businessName}</p>
                     <p className="truncate text-xs text-ink-mute">{g.provider.addressText}</p>
                     <p className="mt-0.5 text-[11px] font-semibold text-ink-soft">
-                      {g.open24x7 ? "Open 24×7" : `Open ${g.opensAt || "08:00"}–${g.closesAt || "20:00"}`}
+                      {(() => {
+                        const s = garageStatus(g, g.provider);
+                        return s.open
+                          ? s.label === "24×7"
+                            ? "Open 24×7"
+                            : `Open now · ${s.detail}`
+                          : `Closed · ${s.detail}`;
+                      })()}
                     </p>
                   </div>
                 </div>

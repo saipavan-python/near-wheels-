@@ -71,6 +71,41 @@ export const TOOLS: ToolDeclaration[] = [
     },
   },
   {
+    name: "search_yatra_buses",
+    description: "Search published Yatra temple tour bus packages (departure date, seats, price per head, route from first stop to last stop). Use for 'yatra buses', 'tirumala yatra', 'temple tour', '1 day 8 temples package'.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        destination: { type: "STRING", description: "optional keyword like Tirumala, Srisailam, Mantralayam" },
+        passengers: { type: "NUMBER", description: "number of passengers for seat hints" },
+      },
+    },
+  },
+  {
+    name: "search_driving_schools",
+    description: "Search verified driving schools and their courses. Use for 'learn driving', 'driving classes', 'near me driving school', 'automatic car lessons', 'getting a license'.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        city: { type: "STRING", description: "school city; omit to search near the user's GPS" },
+        course_type: { type: "STRING", description: "BEGINNER_DRIVING MANUAL_DRIVING AUTOMATIC_DRIVING REFRESHER_DRIVING HIGHWAY_TRAINING PARKING_PRACTICE DEFENSIVE_DRIVING LICENSE_PREPARATION" },
+        transmission: { type: "STRING", description: "MANUAL or AUTOMATIC" },
+      },
+    },
+  },
+  {
+    name: "search_share_rides",
+    description: "Search active share-my-ride offers (available seats, price per seat, from/to, date, driver). Use for 'shared ride', 'join a ride', 'carpool to X', 'share my ride to Y'.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        from: { type: "STRING", description: "pickup town, optional" },
+        to: { type: "STRING", description: "destination town, optional" },
+        date: { type: "STRING", description: "travel date YYYY-MM-DD, optional" },
+      },
+    },
+  },
+  {
     name: "search_drone_operators",
     description: "Search verified drone spraying service operators for farmland.",
     parameters: {

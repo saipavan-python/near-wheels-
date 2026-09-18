@@ -21,6 +21,13 @@ model User {
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
   emailVerifiedAt     DateTime?
+  driverLicenseNumber String?
+  driverLicenseImageUrl String?
+  idProofType         String?
+  idProofNumber       String?
+  idProofImageUrl     String?
+  verificationStatus  String                   @default("UNVERIFIED")
+  verifiedAt          DateTime?
   adminMembership     AdminMember?
   bookings            Booking[]
   chatParticipations  BookingChatParticipant[]
@@ -179,6 +186,7 @@ model Vehicle {
   provider           Provider              @relation(fields: [providerId], references: [id])
   availabilities     VehicleAvailability[]
   yatraPackages      YatraBusPackage[]
+  bookings           Booking[]
 
   @@index([category, status])
   @@index([providerId])
@@ -251,6 +259,7 @@ model Driver {
   updatedAt          DateTime             @updatedAt
   provider           Provider             @relation(fields: [providerId], references: [id], onDelete: Cascade)
   availabilities     DriverAvailability[]
+  bookings           Booking[]
 
   @@index([providerId, status])
   @@index([userId])
@@ -555,6 +564,16 @@ model Booking {
   distanceKm         Float?
   cancelReason       String?
   notes              String?
+  tripOtp            String?
+  otpVerifiedAt      DateTime?
+  endOtpVerifiedAt   DateTime?
+  pickupPhotoUrl     String?
+  dropoffPhotoUrl    String?
+  startedAt          DateTime?
+  endedAt            DateTime?
+  cancellationFee    Float?
+  refundAmount       Float?
+  cancelledAt        DateTime?
   idempotencyKey     String                   @unique
   holdExpiresAt      DateTime?
   createdAt          DateTime                 @default(now())
@@ -564,6 +583,8 @@ model Booking {
   serviceId          String?
   provider           Provider                 @relation("ProviderBookings", fields: [providerId], references: [id])
   customer           User                     @relation(fields: [customerId], references: [id])
+  driver             Driver?                  @relation(fields: [driverId], references: [id])
+  vehicle            Vehicle?                 @relation(fields: [vehicleId], references: [id])
   chatMessages       BookingChatMessage[]
   participants       BookingChatParticipant[]
   commissions        CommissionRecord[]
@@ -883,6 +904,8 @@ model SharedRideBooking {
   paymentStatus  String      @default("UNPAID")
   status         String      @default("ACCEPTED")
   message        String?
+  tripOtp        String?
+  otpVerifiedAt  DateTime?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime?   @updatedAt
   ride           SharedRide  @relation(fields: [rideId], references: [id])

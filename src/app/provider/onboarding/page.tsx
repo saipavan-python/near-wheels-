@@ -40,7 +40,7 @@ export default function ProviderOnboardingPage() {
   const [carDetails, setCarDetails] = useState({ make: "Maruti", model: "Ertiga", seats: "7", fuelType: "PETROL", transmission: "MANUAL", ac: true, dailyRate: "2000", registrationNumber: "" });
   const [tractorDetails, setTractorDetails] = useState({ brand: "John Deere", model: "5310", hp: "55", engineHours: "1850", perAcre: "800", hourlyRate: "1200" });
   const [jcbDetails, setJcbDetails] = useState({ brand: "JCB", model: "3CX", hp: "76", operatingHours: "2100", bucketCapacity: "1.0 cu.m", hourlyRate: "1500" });
-  const [garageDetails, setGarageDetails] = useState({ open24x7: true, opensAt: "08:00", closesAt: "20:00", visitCharge: "300", services: ["MECHANIC", "TOWING", "BATTERY", "TYRE"] });
+  const [garageDetails, setGarageDetails] = useState({ open24x7: true, opensAt: "08:00", closesAt: "20:00", visitCharge: "300", services: ["MECHANIC", "TOWING", "BATTERY", "TYRE"], emergency: false });
   const [driverDetails, setDriverDetails] = useState({ experienceYears: "5", licenseType: "LMV_TR", dailyRate: "900", hourlyRate: "130" });
   const [schoolDetails, setSchoolDetails] = useState({ schoolName: "", price: "4500" });
 
@@ -367,10 +367,14 @@ export default function ProviderOnboardingPage() {
                         <input className="input h-11" value={garageDetails.closesAt} onChange={(e) => setGarageDetails({ ...garageDetails, closesAt: e.target.value })} />
                       </div>
                     </div>
-                    <div className="flex items-center pt-6">
+                    <div className="flex flex-wrap items-center gap-4 pt-6">
                       <label className="flex items-center gap-2 text-sm font-bold cursor-pointer">
                         <input type="checkbox" checked={garageDetails.open24x7} onChange={(e) => setGarageDetails({ ...garageDetails, open24x7: e.target.checked })} className="h-4 w-4 rounded accent-brand-600" />
                         Open 24×7 Emergency Service
+                      </label>
+                      <label className="flex items-center gap-2 text-sm font-bold cursor-pointer">
+                        <input type="checkbox" checked={garageDetails.emergency} onChange={(e) => setGarageDetails({ ...garageDetails, emergency: e.target.checked })} className="h-4 w-4 rounded accent-brand-600" />
+                        Offer emergency / roadside response
                       </label>
                     </div>
                   </div>

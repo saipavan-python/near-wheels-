@@ -233,10 +233,12 @@ export async function POST(req: NextRequest) {
   // 3. Garage Services
   if (selectedCategories.includes("GARAGE")) {
     const g = b.garage || {};
+    const gServices = Array.isArray(g.services) && g.services.length ? g.services.map(String) : ["MECHANIC", "TOWING", "BATTERY", "TYRE", "AC_REPAIR"];
+    if (g.emergency && !gServices.includes("EMERGENCY")) gServices.push("EMERGENCY");
     await prisma.garageProfile.create({
       data: {
         providerId: provider.id,
-        services: JSON.stringify(Array.isArray(g.services) && g.services.length ? g.services : ["MECHANIC", "TOWING", "BATTERY", "TYRE", "AC_REPAIR"]),
+        services: JSON.stringify(gServices),
         open24x7: g.open24x7 !== false,
         opensAt: g.opensAt || "08:00",
         closesAt: g.closesAt || "20:00",

@@ -170,13 +170,15 @@ export async function POST(req: NextRequest) {
             },
           });
           break;
-        case "GARAGE":
+        case "GARAGE": {
+          const garageServices = Array.isArray(b.profile?.services)
+            ? b.profile.services.slice(0, 8).map(String)
+            : ["MECHANIC"];
+          if (b.profile?.emergency && !garageServices.includes("EMERGENCY")) garageServices.push("EMERGENCY");
           await tx.garageProfile.create({
             data: {
               providerId: p.id,
-              services: JSON.stringify(
-                Array.isArray(b.profile?.services) ? b.profile.services.slice(0, 8).map(String) : ["MECHANIC"]
-              ),
+              services: JSON.stringify(garageServices),
               open24x7: !!b.profile?.open24x7,
               opensAt: b.profile?.opensAt || null,
               closesAt: b.profile?.closesAt || null,
@@ -184,6 +186,7 @@ export async function POST(req: NextRequest) {
             },
           });
           break;
+        }
         case "FARM": {
           const e = b.equipment || {};
           if (!e.equipmentType || !e.title) throw new Error("equipment type and title are required");

@@ -2,6 +2,16 @@ import { prisma } from "./db";
 import type { SortPriority } from "./types";
 
 /**
+ * FREE_MODE (env `FREE_MODE`, default: ON)
+ * During the launch period Near Wheels is free — customers book and the
+ * booking is confirmed automatically; no advance/payment is collected and no
+ * commission is taken. Flip to "off" when payments & monetization go live.
+ */
+export const FREE_MODE =
+  (process.env.FREE_MODE ?? "on").toLowerCase() !== "off" &&
+  (process.env.FREE_MODE ?? "on").toLowerCase() !== "false";
+
+/**
  * Dynamic platform configuration (spec §69).
  * Stored in AppSetting("platform") as JSON; admins can change at runtime
  * without redeploying. Falls back to defaults when missing/corrupt.
@@ -50,6 +60,9 @@ export interface PlatformSettings {
     perDay: number; // INR estimate
     enabled: boolean;
   };
+  // ── Cancellation policy ──
+  cancellationWindowHours: number; // free if cancelled more than this many hours before start
+  cancellationFeePercent: number; // % of booking total charged after the window
 }
 
 export const DEFAULT_SETTINGS: PlatformSettings = {
@@ -72,7 +85,7 @@ export const DEFAULT_SETTINGS: PlatformSettings = {
     rating: 12,
     verification: 8,
   },
-  commissionRates: { FREE: 0.1, PRO: 0.06, BUSINESS: 0.04 },
+  commissionRates: { FREE: 0, PRO: 0, BUSINESS: 0 },
   minProviderRating: 3.0,
   providerResponseTimeoutSec: 60,
   supportedCategories: [
@@ -111,6 +124,8 @@ export const DEFAULT_SETTINGS: PlatformSettings = {
   },
   tollConfig: { perKmRate: 1.2, enabled: true },
   parkingConfig: { perDay: 100, enabled: true },
+  cancellationWindowHours: 2,
+  cancellationFeePercent: 0.1,
 };
 
 let cache: { value: PlatformSettings; at: number } | null = null;

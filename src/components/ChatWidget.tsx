@@ -2,12 +2,23 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ResultCard } from "@/lib/ui";
-import { api, inr, speechSupported, listenOnce } from "@/lib/ui";
+import { api, inr, speechSupported, listenOnce, getCurrentPosition } from "@/lib/ui";
 import ResultCardView from "./ResultCardView";
 import BookingSheet from "./BookingSheet";
 import BudgetTripCard from "./BudgetTripCard";
 import { IconChat, IconMic, IconSend, IconX } from "./icons";
-import { CarFront } from "lucide-react";
+import { CarFront, MessageSquarePlus } from "lucide-react";
+
+interface BookingPayload {
+  code?: string;
+  id?: string;
+  status?: string;
+  paymentStatus?: string;
+  providerName?: string;
+  listingTitle?: string;
+  totalAmount?: number;
+  scheduledFor?: string | null;
+}
 
 interface ChatMsg {
   role: "user" | "assistant";
@@ -19,6 +30,7 @@ interface ChatMsg {
     needsLogin?: boolean;
     needsPayment?: { bookingId: string; amount: number } | null;
     suggestions?: string[];
+    booking?: BookingPayload | null;
     tripPlan?: {
       budgetComparison: { budget: number; estimatedTotal: number; delta: number; possible: boolean; confidence: string; disclaimer: string };
       distance: { oneWayKm: number; totalKm: number; source: string };
@@ -30,6 +42,10 @@ interface ChatMsg {
   };
 }
 
+const LS_KEY = "nw_trip_my_pal_v1";
+const POLL_MS = 15000;
+const TERMINAL_STATUSES = new Set(["COMPLETED", "CANCELLED", "REJECTED", "REFUNDED"]);
+
 const ROTATING = [
   "I need an auto right now…",
   "Find a self-drive car near me…",
@@ -38,9 +54,22 @@ const ROTATING = [
   "My car broke down…",
 ];
 
+const STARTER_CHIPS = [
+  "Find a car near me",
+  "I need a driver today",
+  "Plan a trip under 8000",
+  "My car broke down",
+  "Use my location",
+];
+
+const WELCOME =
+  "Hi! What do you need today? I can find vehicles, drivers, garages, farm help and drones, price any trip within your budget, and book it end to end — all with live marketplace data.";
+
 /**
  * Floating AI assistant. Talks only to /api/chat — every marketplace claim
  * in its replies comes from backend tools (search/price/booking), never invented.
+ * RedBus rYde-style: quick-reply chips, guided booking steps,
+ * welcome + history persistence, and live trip-status polling.
  */
 export default function ChatWidget() {
   const [open, setOpen] = useState(false);
@@ -51,8 +80,41 @@ export default function ChatWidget() {
   const [listening, setListening] = useState(false);
   const stopListenRef = useRef<(() => void) | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const greetedRef = useRef(false);
+  const loadedRef = useRef(false);
+  const pollRef = useRef<number | null>(null);
+  const statusRef = useRef<string | null>(null);
+  const locationMetaRef = useRef<{ lat: number; lng: number; label: string } | null>(null);
   const [placeholder, setPlaceholder] = useState(ROTATING[0]);
   const [bookingCard, setBookingCard] = useState<ResultCard | null>(null);
+
+  // restore history from localStorage
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d && Array.isArray(d.msgs) && d.msgs.length) {
+          setMsgs(d.msgs);
+          setConversationId(d.conversationId || null);
+          greetedRef.current = true;
+        }
+      }
+    } catch {
+      /* noop */
+    }
+    loadedRef.current = true;
+  }, []);
+
+  // persist history
+  useEffect(() => {
+    if (!loadedRef.current) return;
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify({ conversationId, msgs }));
+    } catch {
+      /* noop */
+    }
+  }, [msgs, conversationId]);
 
   // rotating placeholder
   useEffect(() => {
@@ -69,11 +131,79 @@ export default function ChatWidget() {
     if (open) requestAnimationFrame(() => scrollToBottom());
   }, [msgs, open]);
 
+  // welcome message the first time the panel opens with no history
+  useEffect(() => {
+    if (open && msgs.length === 0 && !greetedRef.current) {
+      greetedRef.current = true;
+      setMsgs([{ role: "assistant", text: WELCOME, payload: { suggestions: STARTER_CHIPS } }]);
+    }
+  }, [open, msgs.length]);
+
+  // live trip-status polling (RedBus trip-tracking style)
+  useEffect(() => {
+    if (!open) return;
+    const code = lastBookingCode(msgs);
+    const status = lastBookingStatus(msgs, statusRef);
+    if (!code || (status && TERMINAL_STATUSES.has(status))) {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+      return;
+    }
+    if (pollRef.current) return;
+    pollRef.current = window.setInterval(async () => {
+      try {
+        const r = await api<{ booking: { code?: string; status?: string } }>(
+          `/api/ai/trip-status?code=${encodeURIComponent(code!)}`
+        );
+        if (!r.ok || !r.data?.booking?.status) return;
+        const st = r.data.booking.status;
+        if (st !== statusRef.current) {
+          statusRef.current = st;
+          applyTripStatus(code!, st);
+        }
+        if (TERMINAL_STATUSES.has(st) && pollRef.current) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
+      } catch {
+        /* network blip — next tick retries */
+      }
+    }, POLL_MS);
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, msgs]);
+
+  function applyTripStatus(code: string, status: string) {
+    const note = `\n\nTrip ${statusLabel(status)}. I'll keep watching it live.`;
+    setMsgs((ms) =>
+      ms.map((m) => {
+        const b = m.role === "assistant" ? m.payload?.booking : undefined;
+        if (!b || b.code !== code) return m;
+        return { ...m, text: m.text + note, payload: { ...m.payload, booking: { ...b, status } } };
+      })
+    );
+  }
+
   function scrollToBottom() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }
 
-  async function send(text: string) {
+  function newChat() {
+    greetedRef.current = false;
+    setMsgs([]);
+    setConversationId(null);
+    statusRef.current = null;
+    localStorage.removeItem(LS_KEY);
+  }
+
+  async function send(text: string, meta?: { lat: number; lng: number; label: string }) {
     const message = text.trim();
     if (!message || phase === "THINKING") return;
     setInput("");
@@ -81,11 +211,22 @@ export default function ChatWidget() {
     setPhase("THINKING");
 
     const pageContext = typeof window !== "undefined" ? window.location.pathname : "/";
+    const cm = meta || locationMetaRef.current;
+    locationMetaRef.current = null;
     const r = await api<{
       conversationId: string;
       reply: string;
       payload: ChatMsg["payload"];
-    }>("/api/chat", { json: { message, conversationId, pageContext } });
+    }>("/api/chat", {
+      json: {
+        message,
+        conversationId,
+        pageContext,
+        lat: cm?.lat,
+        lng: cm?.lng,
+        locationLabel: cm?.label,
+      },
+    });
 
     setPhase("IDLE");
     if (!r.ok) {
@@ -97,6 +238,29 @@ export default function ChatWidget() {
     }
     setConversationId(r.data.conversationId || conversationId);
     setMsgs((m) => [...m, { role: "assistant", text: r.data.reply || "Here's what I found.", payload: r.data.payload }]);
+  }
+
+  // suggestion chips: special-case "Use my location" so it turns on GPS first
+  async function sendSuggestion(text: string) {
+    if (text.trim().toLowerCase().replace(/[!…]/g, "") === "use my location") {
+      try {
+        const p = await getCurrentPosition();
+        locationMetaRef.current = { lat: p.lat, lng: p.lng, label: "Current location" };
+        await send(`Use my current location (${p.lat.toFixed(6)}, ${p.lng.toFixed(6)})`, locationMetaRef.current);
+      } catch (e: any) {
+        alert(e?.message || "Could not get your location. Please allow location access or type a village/town name.");
+      }
+      return;
+    }
+    await send(text);
+  }
+
+  function handleCardBook(card: ResultCard) {
+    const kind = card.kind as string;
+    if (kind === "BUS") return window.open(`/yatra-buses/${card.id}`, "_self");
+    if (kind === "DRIVING_SCHOOL") return window.open(`/learn-driving/schools/${card.id}`, "_self");
+    if (kind === "SHARE_RIDE") return window.open(`/share-my-ride/ride/${card.id}`, "_self");
+    setBookingCard(card);
   }
 
   // external ask (hero search, service pages)
@@ -138,13 +302,13 @@ export default function ChatWidget() {
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          aria-label="Open Near Wheels AI assistant"
+          aria-label="Open Trip My Pal assistant"
           className="fixed bottom-20 right-4 z-50 flex h-14 items-center gap-2 rounded-full bg-ink pl-4 pr-5 text-sm font-bold text-white shadow-lift ring-1 ring-white/10 transition hover:bg-ink-soft md:bottom-6"
         >
           <span className="grid h-8 w-8 -ml-1 place-items-center rounded-full bg-brand-500">
             <IconChat className="h-[18px] w-[18px]" />
           </span>
-          Ask Near Wheels
+          Ask Trip My Pal
         </button>
       )}
 
@@ -158,15 +322,31 @@ export default function ChatWidget() {
                 <IconChat className="h-5 w-5" />
               </span>
               <div>
-                <p className="text-sm font-bold leading-tight">Near Wheels AI</p>
+                <p className="text-sm font-bold leading-tight">Trip My Pal</p>
                 <p className="text-[11px] leading-tight text-white/50">
-                  {phase === "THINKING" ? " Thinking…" : listening ? " Listening…" : "What do you need?"}
+                  {phase === "THINKING"
+                    ? " Thinking…"
+                    : listening
+                    ? " Listening…"
+                    : msgs.length
+                    ? "Near Wheels travel assistant"
+                    : "Your travel assistant"}
                 </p>
               </div>
             </div>
-            <button aria-label="Close assistant" className="rounded-lg p-1.5 text-white/60 hover:bg-white/10 hover:text-white" onClick={() => setOpen(false)}>
-              <IconX className="h-5 w-5" />
-            </button>
+            <div className="flex items-center gap-0.5">
+              <button
+                aria-label="Start a new chat"
+                title="New chat"
+                className="rounded-lg p-1.5 text-white/60 hover:bg-white/10 hover:text-white"
+                onClick={newChat}
+              >
+                <MessageSquarePlus className="h-5 w-5" />
+              </button>
+              <button aria-label="Close assistant" className="rounded-lg p-1.5 text-white/60 hover:bg-white/10 hover:text-white" onClick={() => setOpen(false)}>
+                <IconX className="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
           {/* messages */}
@@ -176,7 +356,7 @@ export default function ChatWidget() {
                 <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-brand-50 text-brand-600" aria-hidden>
                   <CarFront className="h-7 w-7" />
                 </span>
-                <p className="mt-3 text-sm font-semibold text-slate-700">Tell me what you need</p>
+                <p className="mt-3 text-sm font-semibold text-slate-700">Tell Trip My Pal what you need</p>
                 <p className="mt-1 text-xs text-slate-500">
                   A ride, a driver, a garage, a tractor or drone spraying — in your own words.
                 </p>
@@ -206,6 +386,15 @@ export default function ChatWidget() {
                     ))}
                   </div>
                 )}
+                {m.role === "assistant" && m.payload?.suggestions && m.payload.suggestions.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {m.payload.suggestions.map((s) => (
+                      <button key={s} className="chip !bg-white hover:!bg-brand-50" onClick={() => sendSuggestion(s)}>
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {m.payload?.cards && m.payload.cards.length > 0 && (
                   <div className={`mt-2.5 space-y-2.5 ${m.role === "assistant" ? "" : "hidden"}`}>
                     {m.payload.cards.map((c, ci) => (
@@ -214,7 +403,7 @@ export default function ChatWidget() {
                         card={c}
                         compact
                         bestMatch={ci === 0 && m.payload!.cards!.length > 1}
-                        onBook={(card) => setBookingCard(card)}
+                        onBook={(card) => handleCardBook(card)}
                       />
                     ))}
                   </div>
@@ -318,7 +507,7 @@ export default function ChatWidget() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder={listening ? "Listening…" : placeholder}
-              aria-label="Tell Near Wheels what you need"
+              aria-label="Tell Trip My Pal what you need"
             />
             <button
               type="submit"
@@ -336,6 +525,54 @@ export default function ChatWidget() {
       {bookingCard && <BookingSheet card={bookingCard} onClose={() => setBookingCard(null)} />}
     </>
   );
+}
+
+// --- module-scope helpers -------------------------------------------------------
+
+function lastBookingCode(ms: ChatMsg[]): string | null {
+  for (let i = ms.length - 1; i >= 0; i--) {
+    const b = ms[i].role === "assistant" ? ms[i].payload?.booking : undefined;
+    if (b?.code) return b.code;
+  }
+  return null;
+}
+
+function lastBookingStatus(ms: ChatMsg[], statusRef: { current: string | null }): string | null {
+  const code = lastBookingCode(ms);
+  if (!code) return null;
+  for (let i = ms.length - 1; i >= 0; i--) {
+    const b = ms[i].role === "assistant" ? ms[i].payload?.booking : undefined;
+    if (b?.code === code && b.status) {
+      if (statusRef.current === null) statusRef.current = b.status;
+      return b.status;
+    }
+  }
+  return null;
+}
+
+function statusLabel(status: string): string {
+  switch (status) {
+    case "REQUESTED":
+      return "is requested — waiting for a provider";
+    case "PENDING_PROVIDER":
+      return "is waiting for a provider to accept";
+    case "ACCEPTED":
+      return "was accepted by the provider";
+    case "CONFIRMED":
+      return "is confirmed";
+    case "EN_ROUTE":
+      return "is getting ready";
+    case "IN_PROGRESS":
+      return "is in progress";
+    case "COMPLETED":
+      return "is completed — drive safe";
+    case "CANCELLED":
+      return "was cancelled";
+    case "REJECTED":
+      return "was rejected by the provider";
+    default:
+      return `status is now ${status}`;
+  }
 }
 
 function time() {

@@ -49,6 +49,62 @@ const LANDMARK_HINTS: Record<string, string[]> = {
   "school": ["school","college"],
 };
 
+/** Levenshtein distance — used to tolerate spelling mistakes (Guntor → Guntur). */
+export function levenshtein(a: string, b: string): number {
+  const n = a.length;
+  const m = b.length;
+  if (n === 0) return m;
+  if (m === 0) return n;
+  let prev = new Array(m + 1).fill(0).map((_, i) => i);
+  let curr = new Array(m + 1).fill(0);
+  for (let i = 1; i <= n; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= m; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+    }
+    [prev, curr] = [curr, prev];
+  }
+  return prev[m];
+}
+
+/** How similar two normalized place-name tokens are (0..1). */
+export function similarity(a: string, b: string): number {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  const maxLen = Math.max(a.length, b.length);
+  if (maxLen === 0) return 1;
+  return 1 - levenshtein(a, b) / maxLen;
+}
+
+/**
+ * One misspelled token — e.g. "Guntor" for Guntur, "Tirupathi" for Tirupati.
+ * Requires same first letter, min length 4 and a threshold that keeps distant
+ * villages apart. Returns null when nothing is close enough.
+ */
+function fuzzyMatchToken(query: string, candidates: Location[]): { loc: Location; score: number } | null {
+  const q = norm(query);
+  if (q.length < 4) return null;
+  const parts = q.split(" ");
+  const primary = parts[0];
+  if (primary.length < 4) return null;
+  let best: { loc: Location; score: number } | null = null;
+  for (const loc of candidates) {
+    const name = norm(loc.name);
+    const names = [name, ...JSON.parse(loc.aliases || "[]").map((a: string) => norm(a))];
+    for (const cand of names) {
+      if (!cand || cand.length < 4 || cand[0] !== primary[0]) continue;
+      const sim = similarity(primary, cand);
+      const allowed = cand.length >= 8 ? 0.62 : 0.72;
+      if (sim >= allowed) {
+        const score = 0.55 + sim * 0.2;
+        if (!best || score > best.score) best = { loc, score };
+      }
+    }
+  }
+  return best;
+}
+
 function norm(s: string): string {
   return s
     .toLowerCase()
@@ -138,17 +194,51 @@ export async function resolveLocation(query: string | undefined | null): Promise
     .filter((x) => x.score >= 0.5)
     .sort((a, b) => b.score - a.score);
 
-  if (scored.length === 0) return empty;
+  if (scored.length === 0) {
+    // Spelling-tolerance pass: "Guntor", "Tirupathi" etc. → closest real place.
+    const fuzzy = fuzzyMatchToken(q, locations);
+    if (fuzzy) {
+      return {
+        resolved: fuzzy.loc,
+        candidates: [fuzzy.loc],
+        confidence: Math.min(0.85, fuzzy.score),
+        ambiguous: false,
+      };
+    }
+    return empty;
+  }
 
-  const top = scored[0];
-  const ties = scored.filter((s) => s.score > 0.85 && Math.abs(s.score - top.score) < 0.06);
+  const top = dedupeScoredLocations(scored)[0];
+  const uniq = dedupeScoredLocations(scored);
+  const ties = uniq.filter((s) => s.score > 0.85 && Math.abs(s.score - top.score) < 0.06);
 
   if (top.score >= 0.9 && ties.length <= 1) {
-    return { resolved: top.loc, candidates: scored.slice(0, 4).map((s) => s.loc), confidence: top.score, ambiguous: false };
+    return { resolved: top.loc, candidates: uniq.slice(0, 4).map((s) => s.loc), confidence: top.score, ambiguous: false };
   }
 
   // Ambiguous: multiple strong candidates (e.g., two different the villages)
-  return { resolved: null, candidates: scored.slice(0, 4).map((s) => s.loc), confidence: top.score * 0.7, ambiguous: true };
+  return { resolved: null, candidates: uniq.slice(0, 4).map((s) => s.loc), confidence: top.score * 0.7, ambiguous: true };
+}
+
+export interface ScoredLocation {
+  loc: Location;
+  score: number;
+}
+
+/**
+ * Collapse duplicate gazetteer rows (same name at essentially the same point)
+ * before deciding whether a query is ambiguous. Without this, a city listed
+ * twice in the dataset ties with itself for the top score and the lookup is
+ * wrongly reported as ambiguous.
+ */
+export function dedupeScoredLocations(scored: ScoredLocation[]): ScoredLocation[] {
+  const seen = new Map<string, ScoredLocation>();
+  for (const s of scored) {
+    const key = `${norm(s.loc.name)}|${s.loc.lat.toFixed(4)},${s.loc.lng.toFixed(4)}`;
+    const prev = seen.get(key);
+    if (!prev || s.score > prev.score) seen.set(key, s);
+  }
+  return [...seen.values()].sort((a, b) => b.score - a.score);
 }
 
 export async function searchLocations(term: string, limit = 8) {
@@ -156,8 +246,16 @@ export async function searchLocations(term: string, limit = 8) {
   const q = norm(clean || term);
   if (!q) return [];
   const all = await getLocations();
-  return all
-    .filter((l) => norm(l.name).includes(q) || JSON.parse(l.aliases || "[]").some((a: string) => norm(a).includes(q)))
-    .sort((a, b) => (b.popular === a.popular ? a.name.localeCompare(b.name) : b.popular ? 1 : -1))
+  const hits = dedupeScoredLocations(
+    all
+      .filter((l) => norm(l.name).includes(q) || JSON.parse(l.aliases || "[]").some((a: string) => norm(a).includes(q)))
+      .sort((a, b) => (b.popular === a.popular ? a.name.localeCompare(b.name) : b.popular ? 1 : -1))
+      .map((l) => ({ loc: l, score: l.popular ? 1 : 0.9 }))
+  )
+    .map((s) => s.loc)
     .slice(0, limit);
+  if (hits.length) return hits;
+  // spelling-tolerance fallback for the picker
+  const fuzzy = fuzzyMatchToken(q, all);
+  return fuzzy ? [fuzzy.loc] : [];
 }

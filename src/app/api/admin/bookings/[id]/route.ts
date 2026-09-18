@@ -55,7 +55,7 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
     if (action === "confirm") {
       await Promise.all([
         notifyUser(booking.customerId, "Booking confirmed", `Your booking ${booking.code} has been confirmed by admin. Provider contact is now available.`, `/bookings`, "SUCCESS"),
-        notifyProvider(booking.providerId, "Booking confirmed", `Booking ${booking.code} confirmed by admin.`, `/providers/dashboard`, "SUCCESS"),
+        notifyProvider(booking.providerId, "Booking confirmed", `Booking ${booking.code} confirmed by admin.`, `/provider/dashboard`, "SUCCESS"),
       ]);
       // Unlock chat is implicit via status CONFIRMED
     } else if (action === "reject") {

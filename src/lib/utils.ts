@@ -14,6 +14,11 @@ export function bookingCode(): string {
   return `NW-${s}`;
 }
 
+/** 6-digit trip OTP that the rider shows to the driver to prove identity. */
+export function tripOtp(): string {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
 export function json<T>(v: T): string {
   return JSON.stringify(v ?? null);
 }

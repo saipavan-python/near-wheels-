@@ -11,6 +11,7 @@ import {
   contextSummaryForChat,
 } from "./contextManager";
 import type { ChatContext, ChatPayload } from "./chatTypes";
+import { buildSuggestions } from "./suggestions";
 import {
   searchVehicles,
   searchDrivers,
@@ -24,7 +25,11 @@ import { quoteFromRule, findRuleForTarget } from "../services/pricingService";
 import { createBooking, getPublicBooking, cancelBooking, modifyBookingSchedule, bookingsForCustomer, BookingConflictError } from "../services/bookingService";
 import { isAvailableNow } from "../services/availabilityService";
 import { track } from "../services/analyticsService";
+import { FREE_MODE } from "../config";
 import type { ResultCard, SearchFilters, SortPriority, PriceQuote } from "../types";
+
+/** Marketplace booking engine only handles these listing kinds (guarded at runtime). */
+type CreateBookingListingKind = "VEHICLE" | "DRIVER" | "GARAGE" | "FARM" | "DRONE";
 
 export interface OrchestratorInput {
   message: string;
@@ -33,6 +38,7 @@ export interface OrchestratorInput {
   customerId?: string | null;
   customerName?: string | null;
   pageContext?: string;
+  userLocation?: { lat: number; lng: number; label: string } | null;
 }
 
 const rateBucket = new Map<string, number[]>();
@@ -151,6 +157,16 @@ async function executeTool(
         if ((name === "search_drone_operators" || name === "search_farm_equipment") && typeof args.acres === "number")
           f.acres = args.acres;
 
+        // "current location" / "my location" / "near me" → use the GPS the user shared
+        const curLoc = ctx.context.userLocation;
+        const locText = String(args.location_text || "").toLowerCase().trim();
+        const curAliases = ["current location", "my location", "my current location", "here", "near me", "gps", "my gps", "use my location"];
+        if (curLoc && (!f.locationText || curAliases.includes(locText))) {
+          f.lat = curLoc.lat;
+          f.lng = curLoc.lng;
+          f.locationText = curLoc.label || "Current location";
+        }
+
         // carry over previous location when the new utterance omits it
         if (!f.locationText && ctx.context.lastSearchFilters?.locationText && !ctx.context.lastSearchFilters?.lat)
           f.locationText = ctx.context.lastSearchFilters.locationText;
@@ -173,6 +189,9 @@ async function executeTool(
               distance_km: c.distanceKm,
               eta_min: c.etaMin,
               available_now: c.availableNow,
+              open_label: c.kind === "GARAGE" ? (c.meta.openLabel as string) || undefined : undefined,
+              open_detail: c.kind === "GARAGE" ? (c.meta.openDetail as string) || undefined : undefined,
+              emergency: c.kind === "GARAGE" ? (c.meta.emergency as boolean) || false : undefined,
               price: c.priceLabel,
               rating: c.rating,
               verified: c.verified,
@@ -187,6 +206,125 @@ async function executeTool(
             priority: f.sortBy || ctx.context.priority,
             selected: undefined,
           },
+        };
+      }
+
+      case "search_yatra_buses": {
+        const { publicPackage } = await import("../services/yatraService");
+        const pkgs = await prisma.yatraBusPackage.findMany({
+          where: { status: "PUBLISHED", isPublished: true, isActive: true },
+          include: {
+            operator: true,
+            vehicle: true,
+            driver: { include: { provider: true } },
+            stops: { orderBy: { order: "asc" as const } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 10,
+        });
+        const items: ResultCard[] = pkgs.map((p) => {
+          const pub = publicPackage(p) as any;
+          return {
+            kind: "BUS",
+            id: p.id,
+            providerId: p.operatorId,
+            title: p.packageName,
+            subtitle: `Yatra · ${p.stops[0]?.name || "Onwards"} → ${p.stops[p.stops.length - 1]?.name || "Onwards"}${
+              p.durationDays ? ` · ${p.durationDays}D` : ""
+            }`,
+            category: "BUS",
+            distanceKm: null,
+            etaMin: null,
+            availableNow: pub.availableSeats > 0,
+            priceLabel: `₹${p.pricePerHead}/head`,
+            priceFrom: p.pricePerHead,
+            rating: pub.operator?.rating || 0,
+            verified: Boolean(pub.operator?.verified),
+            badges: [{ label: pub.availableSeats > 0 ? `${pub.availableSeats} seats` : "Sold out", icon: "🎟" }],
+            reason: undefined,
+            emoji: "🚌",
+            meta: { kind: "BUS", from: pub.stops?.[0]?.name, to: pub.stops?.[pub.stops.length - 1]?.name, departure: pub.departureDate, returnDate: pub.returnDate, seats: pub.totalSeats, operator: pub.operator?.name },
+          };
+        });
+        const patch: Partial<ChatPayload> = { cards: items };
+        return {
+          result: { found: items.length, results: items.map((c, i) => ({ index: i + 1, title: c.title, seats: c.meta.seats, price: c.priceLabel, available_now: c.availableNow })) },
+          payloadPatch: patch,
+          contextPatch: { lastResults: items, lastSearchKind: "VEHICLES", selected: undefined },
+        };
+      }
+
+      case "search_driving_schools": {
+        const { searchDrivingSchools } = await import("../services/drivingSchoolService");
+        const curLoc = ctx.context.userLocation;
+        const schools = await searchDrivingSchools({
+          city: args.city || undefined,
+          courseType: args.course_type || undefined,
+          transmission: args.transmission || undefined,
+          lat: curLoc?.lat || undefined,
+          lng: curLoc?.lng || undefined,
+          radiusKm: curLoc && !args.city ? 120 : undefined,
+        });
+        const items: ResultCard[] = schools.map((s: any) => ({
+          kind: "DRIVING_SCHOOL",
+          id: s.id,
+          providerId: s.id,
+          title: s.schoolName,
+          subtitle: `${s.city || "Learn driving"} · ${Array.isArray(s.services) ? s.services.slice(0, 3).join(", ") : "Licensed training"}`,
+          category: "DRIVING_SCHOOL",
+          distanceKm: s.distance ?? null,
+          etaMin: null,
+          availableNow: true,
+          priceLabel: s.priceFrom ? `₹${s.priceFrom}` : "Enquire",
+          priceFrom: s.priceFrom || null,
+          rating: s.rating || 0,
+          verified: true,
+          badges: [{ label: "Driving School", icon: "🎓" }],
+          reason: s.rating ? `Rated ${s.rating.toFixed(1)} by learners` : undefined,
+          emoji: "🚗",
+          meta: { kind: "DRIVING_SCHOOL", school: s.schoolName, city: s.city, priceFrom: s.priceFrom, courses: s.services },
+        }));
+        const patch: Partial<ChatPayload> = { cards: items };
+        return {
+          result: { found: items.length, results: items.map((c, i) => ({ index: i + 1, title: c.title, city: c.meta.city, priceFrom: c.priceFrom, distance: c.distanceKm })) },
+          payloadPatch: patch,
+          contextPatch: { lastResults: items, lastSearchKind: "DRIVERS", selected: undefined },
+        };
+      }
+
+      case "search_share_rides": {
+        const rides = await prisma.sharedRide.findMany({
+          where: { status: { in: ["ACTIVE", "IN_PROGRESS"] } },
+          orderBy: { createdAt: "desc" },
+          take: 10,
+        });
+        const items: ResultCard[] = rides.map((r) => ({
+          kind: "SHARE_RIDE",
+          id: r.id,
+          providerId: r.driverPhone || r.id,
+          title: `${r.fromLocation} → ${r.toLocation}`,
+          subtitle: `${r.travelDate || ""} ${r.departureTime || ""} · ${r.vehicleTitle || "Vehicle"}`,
+          category: "SHARE_RIDE",
+          distanceKm: null,
+          etaMin: null,
+          availableNow: r.availableSeats > 0,
+          priceLabel: `₹${r.pricePerSeat}/seat`,
+          priceFrom: r.pricePerSeat,
+          rating: r.driverRating || 0,
+          verified: Boolean(r.verified),
+          badges: [
+            { label: r.availableSeats > 0 ? `${r.availableSeats} seats` : "Full", icon: "🤝" },
+            { label: r.driverName, icon: "🧑‍✈️" },
+          ],
+          reason: undefined,
+          emoji: "🧑‍🤝‍🧑",
+          meta: { kind: "SHARE_RIDE", from: r.fromLocation, to: r.toLocation, date: r.travelDate, time: r.departureTime, seatsLeft: r.availableSeats, driver: r.driverName, pricePerSeat: r.pricePerSeat },
+        }));
+        const patch: Partial<ChatPayload> = { cards: items };
+        return {
+          result: { found: items.length, results: items.map((c, i) => ({ index: i + 1, from: c.meta.from, to: c.meta.to, date: c.meta.date, price: c.priceLabel })) },
+          payloadPatch: patch,
+          contextPatch: { lastResults: items, lastSearchKind: "VEHICLES", selected: undefined },
         };
       }
 
@@ -274,10 +412,17 @@ async function executeTool(
             payloadPatch: { needsLogin: true },
             contextPatch: {},
           };
-        const idx = Number(args.index ?? ctx.context.selected?.index) - 1;
+const idx = Number(args.index ?? ctx.context.selected?.index) - 1;
         const card = ctx.context.lastResults?.[idx];
         if (!card) return { result: { error: `No result at position ${args.index}` }, payloadPatch: {}, contextPatch: {} };
-
+        // Yatra/schools/shared-rides book on their own pages — don't force them through the marketplace engine.
+        if (["BUS", "DRIVING_SCHOOL", "SHARE_RIDE"].includes(card.kind)) {
+          return {
+            result: { error: `${card.title} is booked on its dedicated page — I've opened it for you.` },
+            payloadPatch: { noResults: false },
+            contextPatch: {},
+          };
+        }
         const draft = upsertDraft(ctx.context, card, {
           durationDays: args.duration_days,
           durationHours: args.duration_hours,
@@ -292,7 +437,7 @@ async function executeTool(
         const { booking } = await createBooking({
           customerId: ctx.customerId,
           kind: bookingKindFor(card),
-          listingKind: card.kind,
+          listingKind: card.kind as CreateBookingListingKind,
           listingId: card.id,
           scheduledFor: draft.scheduledFor || null,
           durationDays: draft.durationDays,
@@ -323,7 +468,9 @@ async function executeTool(
               booking.status === "PENDING_PROVIDER"
                 ? "Request sent to provider — confirmation will follow once they accept."
                 : accepted
-                ? "Provider accepted. Payment can proceed; booking becomes CONFIRMED only after verified payment."
+                ? FREE_MODE
+                  ? "Your booking is confirmed — no advance or payment needed right now."
+                  : "Provider accepted. Payment can proceed; booking becomes CONFIRMED only after verified payment."
                 : "",
           },
           payloadPatch: {
@@ -712,6 +859,135 @@ function publicize(b: any) {
   return rest;
 }
 
+/**
+ * Deterministic fallback that runs WITHOUT Gemini (or when the Gemini API
+ * errors / hits rate limits). The bot must ALWAYS answer — budget trips via
+ * plan_trip_with_budget, otherwise a direct marketplace search. Only runs the
+ * real platform services in a transaction, never fabricated data.
+ */
+async function runOfflineFallback(
+  input: OrchestratorInput,
+  ctx: ChatContext,
+  conversation: { id: string; title: string | null },
+  mode: "no_key" | "api_error"
+): Promise<{ conversationId: string; reply: string; payload: ChatPayload; degraded: string }> {
+  const deg = (s: string) => (mode === "no_key" ? `no_api_key_${s}` : `api_error_${s}`);
+  try {
+    const { parseTripIntent } = await import("../services/budgetParser");
+    const intent = parseTripIntent(input.message);
+    // If budget + from/to present, do budget trip plan directly
+    if (intent.budget && intent.from && intent.to) {
+      const out = await executeTool("plan_trip_with_budget", {
+        budget: intent.budget,
+        from: intent.from,
+        to: intent.to,
+        pax: intent.pax,
+        days: intent.days,
+        vehicle_category: intent.vehicleCategory,
+        vehicle_model: intent.vehicleModel,
+        with_driver: intent.withDriver,
+        round_trip: intent.roundTrip,
+      } as Record<string, unknown>, { customerId: input.customerId, context: ctx, conversationId: conversation.id });
+      const payload: ChatPayload = { ...(out.payloadPatch as ChatPayload) };
+      const result = out.result as { budgetComparison?: { possible: boolean; estimatedTotal: number; budget: number; delta: number }; cheapest?: { title: string; total: number } };
+      let reply = "";
+      if (result.budgetComparison) {
+        if (result.budgetComparison.possible) {
+          reply = `Yes, this trip looks possible within your ₹${result.budgetComparison.budget.toLocaleString("en-IN")} budget. Estimated total: ₹${result.budgetComparison.estimatedTotal.toLocaleString("en-IN")} (cheapest: ${result.cheapest?.title || "vehicle"}). Remaining: ₹${result.budgetComparison.delta.toLocaleString("en-IN")}. Fuel/toll are estimates.`;
+        } else {
+          reply = `This trip may not fit your ₹${result.budgetComparison.budget.toLocaleString("en-IN")} budget. Estimated total is ₹${result.budgetComparison.estimatedTotal.toLocaleString("en-IN")}. Additional ~₹${Math.abs(result.budgetComparison.delta).toLocaleString("en-IN")} needed.`;
+        }
+      } else {
+        reply = "I checked your trip with our cost engine — see the breakdown below.";
+      }
+      // save context
+      const newCtx = { ...ctx, ...(out.contextPatch as Partial<ChatContext>) };
+      payload.suggestions = buildSuggestions(newCtx as ChatContext, payload);
+      await saveContext(conversation.id, newCtx as ChatContext, conversation.title ?? input.message.slice(0, 40));
+      await appendMessage(conversation.id, "assistant", reply, payload);
+      return { conversationId: conversation.id, reply, payload, degraded: deg("fallback") };
+    }
+    // Fallback: try a simple search near the mentioned location (or the shared GPS)
+    const lower = input.message.toLowerCase();
+    const isDriver = lower.includes("driver") || lower.includes("drivr") || lower.includes("chauffeur");
+    const isGarage = lower.includes("garage") || lower.includes("mechanic") || lower.includes("puncture") || lower.includes("towing") || lower.includes("battery") || lower.includes("repair") || lower.includes("breakdown");
+    const isFarm = lower.includes("tractor") || lower.includes("farm") || lower.includes("acre") || lower.includes("plough");
+    const isDrone = lower.includes("drone") || lower.includes("spray");
+    // extract location via "near X" or known gazetteer names
+    let locMatch: string | null = null;
+    const nearMatch = input.message.match(/near\s+([A-Za-z\u0C00-\u0C7F]{3,})/i);
+    if (nearMatch) locMatch = nearMatch[1];
+    else {
+      // try to find any known location name in the message
+      const { searchLocations } = await import("../services/locationService");
+      const words = input.message.split(/[\s,]+/).filter((w) => w.length >= 4);
+      for (const w of words) {
+        const locs = await searchLocations(w, 1);
+        if (locs.length) { locMatch = locs[0].name; break; }
+      }
+      // intent from/to only counts if it is a real gazetteer place (avoids
+      // regex noise like "booking?" → "ng" being used as a location)
+      if (!locMatch && (intent.from || intent.to)) {
+        const cand = (intent.from || intent.to) as string;
+        const check = await searchLocations(cand, 1);
+        if (check.length) locMatch = check[0].name;
+      }
+    }
+    if (locMatch || ctx.userLocation) {
+      try {
+        const tool = isDriver
+          ? "search_drivers"
+          : isGarage
+          ? "search_garages"
+          : isFarm
+          ? "search_farm_equipment"
+          : isDrone
+          ? "search_drone_operators"
+          : "search_vehicles";
+        const searchOut = await executeTool(tool, { location_text: locMatch || undefined } as Record<string, unknown>, { customerId: input.customerId, context: ctx, conversationId: conversation.id });
+        const payload = { ...(searchOut.payloadPatch as ChatPayload) };
+        const cards = (payload.cards || []) as ResultCard[];
+        if (cards.length) {
+          const kind = isDriver ? "drivers" : isGarage ? "garages" : isFarm ? "farm services" : isDrone ? "drone operators" : "vehicles";
+          const note =
+            mode === "no_key"
+              ? "I'm currently answering from live marketplace data (offline mode), so these results are real — tap to book."
+              : "These are live results from the marketplace — tap to book.";
+          const reply = `I found ${cards.length} ${kind} near ${locMatch || "your location"}. ${note}`;
+          const newCtx = { ...ctx, ...(searchOut.contextPatch as Partial<ChatContext>) };
+          await saveContext(conversation.id, newCtx as ChatContext, conversation.title ?? input.message.slice(0, 40));
+          await appendMessage(conversation.id, "assistant", reply, payload);
+          return { conversationId: conversation.id, reply, payload, degraded: deg("fallback") };
+        } else {
+          // no results but location was found — still return a helpful message with no cards
+          const reply = `I checked near ${locMatch || "your location"} but found no ${isDriver ? "drivers" : isGarage ? "garages" : isFarm ? "farm services" : isDrone ? "drone operators" : "vehicles"} right now. Try a nearby town or expand the search.`;
+          await appendMessage(conversation.id, "assistant", reply, { suggestions: ["Search another town", "Budget trip plan", "Need a driver nearby"] });
+          return { conversationId: conversation.id, reply, payload: { suggestions: ["Search another town", "Budget trip plan", "Need a driver nearby"] }, degraded: deg("fallback") };
+        }
+      } catch {}
+    }
+    // Knowledge-base retrieval ("RAG"): answer questions from grounded content when
+    // no live search/budget applies — keeps offline mode genuinely useful.
+    try {
+      const { retrieveKnowledge } = await import("./knowledgeBase");
+      const hit = retrieveKnowledge(input.message);
+      if (hit) {
+        const kbReply = hit.entry.answer;
+        const payload: ChatPayload = { suggestions: hit.entry.suggestions || [] };
+        await appendMessage(conversation.id, "assistant", kbReply, payload);
+        return { conversationId: conversation.id, reply: kbReply, payload, degraded: deg("kb") };
+      }
+    } catch {}
+  } catch {}
+  const reply =
+    mode === "no_key"
+      ? "I'm Trip My Pal's assistant working in offline mode (no AI key) — I answer from my built-in knowledge plus live marketplace data. I can check your budget, find vehicles/drivers/garages near you, and answer questions about prices, bookings and policies. Just tell me what you need."
+      : "I can check your budget and find vehicles, drivers and garages near you, or answer questions about prices, bookings and policies. Just tell me what you need — in English, Telugu or Hindi.";
+  const offlinePayload: ChatPayload = { suggestions: ["Budget trip plan", "Find a vehicle near me", "I need a driver"] };
+  await appendMessage(conversation.id, "assistant", reply, offlinePayload);
+  return { conversationId: conversation.id, reply, payload: offlinePayload, degraded: mode === "no_key" ? "no_api_key" : "api_error" };
+}
+
 export async function handleChatMessage(
   input: OrchestratorInput
 ): Promise<{ conversationId: string; reply: string; payload: ChatPayload; degraded?: string }> {
@@ -732,90 +1008,12 @@ export async function handleChatMessage(
     pageContext: input.pageContext,
   });
   const ctx = readContext(conversation);
+  // remember GPS the user shared this turn (used for "near me" searches)
+  if (input.userLocation && !ctx.userLocation) ctx.userLocation = input.userLocation;
   await appendMessage(conversation.id, "user", input.message);
   await track("ai_intent", { page: input.pageContext, text: input.message.slice(0, 120) }, { conversationId: conversation.id });
 
-  if (!process.env.GEMINI_API_KEY) {
-    // Fallback: work without Gemini using deterministic services (budget -> trip planner, otherwise search)
-    try {
-      const { parseTripIntent } = await import("../services/budgetParser");
-      const intent = parseTripIntent(input.message);
-      // If budget + from/to present, do budget trip plan directly
-      if (intent.budget && intent.from && intent.to) {
-        const out = await executeTool("plan_trip_with_budget", {
-          budget: intent.budget,
-          from: intent.from,
-          to: intent.to,
-          pax: intent.pax,
-          days: intent.days,
-          vehicle_category: intent.vehicleCategory,
-          vehicle_model: intent.vehicleModel,
-          with_driver: intent.withDriver,
-          round_trip: intent.roundTrip,
-        } as Record<string, unknown>, { customerId: input.customerId, context: ctx, conversationId: conversation.id });
-        const payload: ChatPayload = { ...(out.payloadPatch as ChatPayload) };
-        const result = out.result as { budgetComparison?: { possible: boolean; estimatedTotal: number; budget: number; delta: number }; cheapest?: { title: string; total: number } };
-        let reply = "";
-        if (result.budgetComparison) {
-          if (result.budgetComparison.possible) {
-            reply = `Yes, this trip looks possible within your ₹${result.budgetComparison.budget.toLocaleString("en-IN")} budget. Estimated total: ₹${result.budgetComparison.estimatedTotal.toLocaleString("en-IN")} (cheapest: ${result.cheapest?.title || "vehicle"}). Remaining: ₹${result.budgetComparison.delta.toLocaleString("en-IN")}. Fuel/toll are estimates.`;
-          } else {
-            reply = `This trip may not fit your ₹${result.budgetComparison.budget.toLocaleString("en-IN")} budget. Estimated total is ₹${result.budgetComparison.estimatedTotal.toLocaleString("en-IN")}. Additional ~₹${Math.abs(result.budgetComparison.delta).toLocaleString("en-IN")} needed.`;
-          }
-        } else {
-          reply = "I checked your trip with our cost engine — see the breakdown below.";
-        }
-        // save context
-        const newCtx = { ...ctx, ...(out.contextPatch as Partial<ChatContext>) };
-        await saveContext(conversation.id, newCtx as ChatContext, conversation.title ?? input.message.slice(0, 40));
-        await appendMessage(conversation.id, "assistant", reply, payload);
-        return { conversationId: conversation.id, reply, payload, degraded: "no_api_key_fallback" };
-      }
-      // Fallback: try a simple search near the mentioned location
-      const lower = input.message.toLowerCase();
-      const isDriver = lower.includes("driver");
-      const isGarage = lower.includes("garage") || lower.includes("mechanic") || lower.includes("puncture") || lower.includes("towing") || lower.includes("battery");
-      // extract location via "near X" or known gazetteer names
-      let locMatch: string | null = null;
-      const nearMatch = input.message.match(/near\s+([A-Za-z\u0C00-\u0C7F]{3,})/i);
-      if (nearMatch) locMatch = nearMatch[1];
-      else {
-        // try to find any known location name in the message
-        const { searchLocations } = await import("../services/locationService");
-        const words = input.message.split(/[\s,]+/).filter((w) => w.length >= 4);
-        for (const w of words) {
-          const locs = await searchLocations(w, 1);
-          if (locs.length) { locMatch = locs[0].name; break; }
-        }
-        if (!locMatch) locMatch = intent.from || intent.to || null;
-      }
-      if (locMatch) {
-        try {
-          const tool = isDriver ? "search_drivers" : isGarage ? "search_garages" : "search_vehicles";
-          const searchOut = await executeTool(tool, { location_text: locMatch } as Record<string, unknown>, { customerId: input.customerId, context: ctx, conversationId: conversation.id });
-          const payload = { ...(searchOut.payloadPatch as ChatPayload) };
-          const cards = (payload.cards || []) as ResultCard[];
-          if (cards.length) {
-            const kind = isDriver ? "drivers" : isGarage ? "garages" : "vehicles";
-            const reply = `I found ${cards.length} ${kind} near ${locMatch}. The AI is in offline mode (no Gemini key), but these are real results from our marketplace — tap to book.`;
-            const newCtx = { ...ctx, ...(searchOut.contextPatch as Partial<ChatContext>) };
-            await saveContext(conversation.id, newCtx as ChatContext, conversation.title ?? input.message.slice(0, 40));
-            await appendMessage(conversation.id, "assistant", reply, payload);
-            return { conversationId: conversation.id, reply, payload, degraded: "no_api_key_fallback" };
-          } else {
-            // no results but location was found — still return a helpful message with no cards
-            const reply = `I checked near ${locMatch} but found no ${isDriver ? "drivers" : isGarage ? "garages" : "vehicles"} right now. Try a nearby town or expand the search.`;
-            await appendMessage(conversation.id, "assistant", reply, {});
-            return { conversationId: conversation.id, reply, payload: {}, degraded: "no_api_key_fallback" };
-          }
-        } catch {}
-      }
-    } catch {}
-    const reply =
-      "The AI assistant is in offline mode (no Gemini key). I can still check your budget and find vehicles — try: “₹10000 Guntur to Tirupati 5 members Ertiga + driver” or “need a driver near Nandyal”. Meanwhile you can browse and book directly from the service pages.";
-    await appendMessage(conversation.id, "assistant", reply);
-    return { conversationId: conversation.id, reply, payload: emptyPayload, degraded: "no_api_key" };
-  }
+  if (!process.env.GEMINI_API_KEY) return runOfflineFallback(input, ctx, conversation, "no_key");
 
   const recent = await loadRecentMessages(conversation.id, 12);
   const contents: Content[] = [];
@@ -829,6 +1027,7 @@ export async function handleChatMessage(
     pageContext: input.pageContext,
     contextSummary: contextSummaryForChat(ctx),
     customerName: input.customerName || undefined,
+    userLocation: ctx.userLocation || null,
   });
 
   const toolCtx = { customerId: input.customerId, context: ctx, conversationId: conversation.id };
@@ -847,29 +1046,38 @@ export async function handleChatMessage(
     },
   });
 
-  let reply: string;
   if (!outcome.ok) {
-    reply =
-      "I couldn't verify that right now — my assistant service hiccupped. Let me try again in a moment, or you can browse options on this page.";
+    console.error("[ai] generate failed:", outcome.error);
     await track("ai_error", { error: outcome.error }, { conversationId: conversation.id });
-  } else {
-    reply = outcome.text?.trim() || "Here's what I found.";
+    // Gemini down / rate-limited: fall back to the deterministic engine so the bot ALWAYS answers.
+    return runOfflineFallback(input, ctx, conversation, "api_error");
   }
+  let reply: string = outcome.text?.trim() || "Here's what I found.";
 
-  // Final validation pass (§92): drop cards whose provider went inactive/unavailable
+// Final validation pass (§92): drop cards whose provider went inactive/unavailable
+  // (only applies to marketplace listings — yatra/schools/shared rides aren't provider-owned)
+  const PROVIDER_KINDS = ["VEHICLE", "DRIVER", "GARAGE", "FARM", "DRONE"];
   if (payloadAcc.cards?.length) {
-    const provIds = [...new Set(payloadAcc.cards.map((c) => c.providerId))];
-    const providers = await prisma.provider.findMany({ where: { id: { in: provIds } } });
-    const pmap = new Map(providers.map((p) => [p.id, p]));
-    payloadAcc.cards = payloadAcc.cards.filter((c) => {
-      const p = pmap.get(c.providerId);
-      return p && p.status === "ACTIVE" && (p.availabilityStatus !== "OFFLINE");
-    });
-    if (payloadAcc.cards.length === 0) {
-      reply += "\n\nHmm — those options just became unavailable. Try searching again.";
+    const providerCards = payloadAcc.cards.filter((c) => PROVIDER_KINDS.includes(c.kind));
+    const otherCards = payloadAcc.cards.filter((c) => !PROVIDER_KINDS.includes(c.kind));
+    if (providerCards.length) {
+      const provIds = [...new Set(providerCards.map((c) => c.providerId))];
+      const providers = await prisma.provider.findMany({ where: { id: { in: provIds } } });
+      const pmap = new Map(providers.map((p) => [p.id, p]));
+      payloadAcc.cards = [
+        ...otherCards,
+        ...providerCards.filter((c) => {
+          const p = pmap.get(c.providerId);
+          return p && p.status === "ACTIVE" && p.availabilityStatus !== "OFFLINE";
+        }),
+      ];
+      if (payloadAcc.cards.length === 0) {
+        reply += "\n\nHmm — those options just became unavailable. Try searching again.";
+      }
     }
   }
 
+  payloadAcc.suggestions = buildSuggestions(contextMut, payloadAcc);
   await saveContext(conversation.id, contextMut, conversation.title ?? input.message.slice(0, 40));
   await appendMessage(conversation.id, "assistant", reply, payloadAcc);
 

@@ -18,9 +18,9 @@ async function main() {
 
   // ── Plans (skip existing) ─────────────────────────────────────────
   const planSeeds = [
-    { code: "FREE", name: "Free", monthlyFee: 0, commissionRate: 0.1, features: JSON.stringify(["Standard visibility", "10% commission"]) },
-    { code: "PRO", name: "Pro", monthlyFee: 499, commissionRate: 0.06, features: JSON.stringify(["Priority in search", "6% commission", "Monthly insights"]) },
-    { code: "BUSINESS", name: "Business", monthlyFee: 1499, commissionRate: 0.04, features: JSON.stringify(["Top placement", "4% commission", "Multi-listing tools"]) },
+    { code: "FREE", name: "Free", monthlyFee: 0, commissionRate: 0, features: JSON.stringify(["Standard visibility", "0% commission (launch)"]) },
+    { code: "PRO", name: "Pro", monthlyFee: 499, commissionRate: 0, features: JSON.stringify(["Priority in search", "0% commission (launch)", "Monthly insights"]) },
+    { code: "BUSINESS", name: "Business", monthlyFee: 1499, commissionRate: 0, features: JSON.stringify(["Top placement", "0% commission (launch)", "Multi-listing tools"]) },
   ];
   for (const s of planSeeds) {
     const existing = await prisma.subscriptionPlan.findUnique({ where: { code: s.code } });

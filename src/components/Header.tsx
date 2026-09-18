@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import Logo from "./Logo";
+import NotificationBell from "./NotificationBell";
 
 interface MeData {
   user: { id: string; name?: string | null; phone: string; email?: string | null; role: string } | null;
@@ -97,7 +98,9 @@ export default function Header() {
           </button>
 
           {me ? (
-            <div className="relative">
+            <>
+              <NotificationBell signedIn={!!me} />
+              <div className="relative">
               <button onClick={() => setOpen(!open)} className="flex items-center gap-2 rounded-full border border-ink/10 bg-white px-3 py-1.5 shadow-sm hover:shadow-md">
                 <span className="grid h-7 w-7 place-items-center rounded-full bg-ink text-xs font-bold text-white">
                   {(me.name || me.phone || "U").slice(0, 1).toUpperCase()}
@@ -171,6 +174,7 @@ export default function Header() {
                 </>
               )}
             </div>
+            </>
           ) : (
             <button
               className="inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-ink/90"

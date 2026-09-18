@@ -27,6 +27,13 @@ export async function POST(req: NextRequest) {
       req.cookies.get("nw_device")?.value ||
       `anon-${randomUUID()}`;
 
+    const lat = Number(body.lat);
+    const lng = Number(body.lng);
+    const userLocation =
+      Number.isFinite(lat) && Number.isFinite(lng)
+        ? { lat, lng, label: String(body.locationLabel || "Current location") }
+        : null;
+
     const result = await handleChatMessage({
       message,
       conversationId: body.conversationId ? String(body.conversationId) : undefined,
@@ -34,6 +41,7 @@ export async function POST(req: NextRequest) {
       customerId,
       customerName,
       pageContext: body.pageContext ? String(body.pageContext) : undefined,
+      userLocation,
     });
 
     const res = ok({

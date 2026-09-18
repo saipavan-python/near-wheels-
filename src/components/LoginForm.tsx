@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { ShieldCheck, ArrowRight, Mail, Lock, Eye, EyeOff, User, Building2 } from "lucide-react";
 import { api } from "@/lib/ui";
 import GoogleLoginButton from "./GoogleLoginButton";
@@ -251,7 +252,7 @@ export default function LoginForm({ onDone }: { onDone?: () => void }) {
           <div>
             <div className="flex items-center justify-between">
               <label className="label mb-0" htmlFor="pw-pass">Password</label>
-              <a href="#" onClick={(e) => { e.preventDefault(); setMode("otp"); setStep("form"); setErr(null); }} className="text-xs font-semibold text-slate-400 hover:text-brand-700">Forgot?</a>
+              <Link href="/forgot-password" className="text-xs font-semibold text-slate-400 hover:text-brand-700">Forgot?</Link>
             </div>
             <div className="relative">
               <input id="pw-pass" type={showPassword ? "text" : "password"} placeholder="Your password" value={password} onChange={(e) => setPassword(e.target.value)} className="input h-11 pr-10 text-xs" required minLength={8} autoComplete="current-password" />

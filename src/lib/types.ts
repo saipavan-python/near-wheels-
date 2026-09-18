@@ -119,7 +119,7 @@ export interface SearchFilters {
 
 /** The universal card every surface (web UI + AI bot) renders. */
 export interface ResultCard {
-  kind: "VEHICLE" | "DRIVER" | "GARAGE" | "FARM" | "DRONE";
+  kind: "VEHICLE" | "DRIVER" | "GARAGE" | "FARM" | "DRONE" | "BUS" | "DRIVING_SCHOOL" | "SHARE_RIDE";
   id: string;
   providerId: string;
   title: string;

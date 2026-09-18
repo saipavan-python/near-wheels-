@@ -94,7 +94,7 @@ export async function verifyShareRidePayment(gatewayRef: string, outcome: "succe
     gatewayPaymentId = captured.id ?? null;
   }
 
-  const commissionRate = Number(process.env.SHARE_RIDE_COMMISSION_PCT || 15) / 100;
+  const commissionRate = Number(process.env.SHARE_RIDE_COMMISSION_PCT || 0) / 100;
   const result = await prisma
     .$transaction(
       async (tx) => {
