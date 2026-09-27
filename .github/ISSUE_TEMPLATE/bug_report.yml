@@ -1,0 +1,55 @@
+name: Bug report
+description: Something behaves incorrectly
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you observe? Include the exact error message if there was one.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to /share-my-ride/offer
+        2. Fill in ...
+        3. See error
+    validations:
+      required: true
+  - type: dropdown
+    id: vertical
+    attributes:
+      label: Which area
+      options:
+        - Ride sharing
+        - Vehicle rental
+        - Garages
+        - Driving school
+        - Drone / farm services
+        - Yatra buses
+        - Payments or payouts
+        - Auth / login
+        - Admin panel
+        - AI features
+        - Infrastructure or deployment
+    validations:
+      required: true
+  - type: input
+    id: commit
+    attributes:
+      label: Commit SHA or deployed version
+      placeholder: abc1234
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      render: shell

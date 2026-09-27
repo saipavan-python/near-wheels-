@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: near-wheels-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: near_wheels
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d near_wheels"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_SITE_URL: http://localhost:3000
+    container_name: near-wheels-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:8080"
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/near_wheels?schema=public
+      # Generate your own: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+      SESSION_SECRET: ${SESSION_SECRET:-change-me-in-production-0123456789abcdef0123456789abcdef}
+      ADMIN_PHONE: ${ADMIN_PHONE:-8096327356}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin@nearwheels}
+      PAYMENT_MODE: ${PAYMENT_MODE:-simulated}
+      UPLOAD_DIR: /app/data/uploads
+    volumes:
+      - uploads:/app/data/uploads
+
+volumes:
+  db_data:
+  uploads:
