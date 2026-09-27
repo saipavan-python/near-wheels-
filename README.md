@@ -19,9 +19,61 @@
 
 ---
 
+<p align="center">
+  <img src="docs/screenshots/01-home.png" alt="Near Wheels home page" width="900">
+</p>
+
+---
+
+## Screenshots
+
+Every vertical, captured from the running app.
+
+### Marketplace
+
+| | |
+|---|---|
+| <img src="docs/screenshots/02-explore.png" alt="Explore" width="400"> | <img src="docs/screenshots/06-vehicles.png" alt="Vehicles" width="400"> |
+| **Explore** | **Vehicle rentals** |
+| <img src="docs/screenshots/07-garages.png" alt="Garages" width="400"> | <img src="docs/screenshots/12-yatra-buses.png" alt="Yatra buses" width="400"> |
+| **Garages** | **Yatra buses** |
+
+### Share My Ride — the monetization core
+
+| | |
+|---|---|
+| <img src="docs/screenshots/03-share-ride.png" alt="Share My Ride" width="400"> | <img src="docs/screenshots/04-share-offer.png" alt="Offer a ride" width="400"> |
+| **Ride sharing** | **Offer a ride** |
+| <img src="docs/screenshots/05-share-find.png" alt="Find a ride" width="400"> | <img src="docs/screenshots/18-admin.png" alt="Admin payouts" width="400"> |
+| **Find a ride** | **Admin payouts** |
+
+### Services and discovery
+
+| | |
+|---|---|
+| <img src="docs/screenshots/10-farm-services.png" alt="Farm services" width="400"> | <img src="docs/screenshots/11-drone-spraying.png" alt="Drone spraying" width="400"> |
+| **Farm services** | **Drone spraying** |
+| <img src="docs/screenshots/09-driving-school.png" alt="Driving school" width="400"> | <img src="docs/screenshots/13-drivers.png" alt="Drivers" width="400"> |
+| **Driving school** | **Driver booking** |
+| <img src="docs/screenshots/14-emergency.png" alt="Emergency" width="400"> | <img src="docs/screenshots/08-location-kurnool.png" alt="Location page" width="400"> |
+| **Emergency assistance** | **Per-city SEO page** |
+
+### Responsive and auth
+
+| | |
+|---|---|
+| <img src="docs/screenshots/17-mobile-home.png" alt="Mobile home" width="240"> | <img src="docs/screenshots/15-register.png" alt="Register" width="400"> |
+| **Mobile** | **Registration** |
+| <img src="docs/screenshots/16-login.png" alt="OTP login" width="400"> | |
+| **OTP login** | |
+
+---
+
 ## What this is
 
 Most marketplace demos stop at "listings and bookings." Near Wheels is a **multi-sided marketplace** where the same user can be a customer, a driver, a garage, a driving school, a drone operator, and a bus operator — each with its own onboarding, dashboard, pricing, and payout path.
+
+<a href="docs/screenshots/01-home.png"><img src="docs/screenshots/01-home.png" alt="Near Wheels home" width="820"></a>
 
 Seven distinct service verticals share one auth system, one booking engine, one payment layer, and one admin panel:
 
