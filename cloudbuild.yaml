@@ -21,6 +21,10 @@ steps:
   # 2. Deploy to Cloud Run (zero-downtime, requests-per-second autoscaling)
   # Razorpay secrets are OPTIONAL — leave them empty and the app runs in simulated mode.
   # When you get Razorpay credentials, update them in Secret Manager and uncomment below.
+  # Uploads are written to UPLOAD_DIR (default /tmp/uploads, writable on Cloud Run).
+  # For persistent uploads, also add:
+  #   --add-volume=name=uploads,type=cloud-storage,bucket=YOUR_BUCKET \
+  #   --add-volume-mount=volume=uploads,mount-path=/tmp/uploads
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: 'bash'
     args:
@@ -37,7 +41,7 @@ steps:
           --max-instances=10 \
           --port=8080 \
           --service-account="$_SERVICE_ACCOUNT" \
-          --set-env-vars="DATABASE_URL=$${_DATABASE_URL},SESSION_SECRET=$${_SESSION_SECRET},ADMIN_PHONE=$${_ADMIN_PHONE},ADMIN_PASSWORD=$${_ADMIN_PASSWORD},DEMO_CUSTOMER_PHONE=$${_DEMO_CUSTOMER_PHONE},GEMINI_API_KEY=$${_GEMINI_API_KEY},GEMINI_MODEL=$${_GEMINI_MODEL},PAYMENT_MODE=$${_PAYMENT_MODE},NEXT_PUBLIC_RAZORPAY_KEY_ID=$${_RAZORPAY_KEY_ID},RAZORPAY_KEY_ID=$${_RAZORPAY_KEY_ID},RAZORPAY_KEY_SECRET=$${_RAZORPAY_KEY_SECRET},RAZORPAY_WEBHOOK_SECRET=$${_RAZORPAY_WEBHOOK_SECRET},PAYMENT_WEBHOOK_SECRET=$${_PAYMENT_WEBHOOK_SECRET}"
+          --set-env-vars="DATABASE_URL=$${_DATABASE_URL},SESSION_SECRET=$${_SESSION_SECRET},ADMIN_PHONE=$${_ADMIN_PHONE},ADMIN_PASSWORD=$${_ADMIN_PASSWORD},DEMO_CUSTOMER_PHONE=$${_DEMO_CUSTOMER_PHONE},GEMINI_API_KEY=$${_GEMINI_API_KEY},GEMINI_MODEL=$${_GEMINI_MODEL},PAYMENT_MODE=$${_PAYMENT_MODE},NEXT_PUBLIC_RAZORPAY_KEY_ID=$${_RAZORPAY_KEY_ID},RAZORPAY_KEY_ID=$${_RAZORPAY_KEY_ID},RAZORPAY_KEY_SECRET=$${_RAZORPAY_KEY_SECRET},RAZORPAY_WEBHOOK_SECRET=$${_RAZORPAY_WEBHOOK_SECRET},PAYMENT_WEBHOOK_SECRET=$${_PAYMENT_WEBHOOK_SECRET},UPLOAD_DIR=$${_UPLOAD_DIR}"
 
 images:
   - '$_REGION-docker.pkg.dev/$PROJECT_ID/near-wheels/near-wheels:${_TAG}'
@@ -60,6 +64,7 @@ substitutions:
   _RAZORPAY_KEY_SECRET: ''
   _RAZORPAY_WEBHOOK_SECRET: ''
   _PAYMENT_WEBHOOK_SECRET: ''
+  _UPLOAD_DIR: /tmp/uploads
 
 options:
   dynamic_substitutions: true

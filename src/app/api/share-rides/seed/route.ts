@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 function seedAuthorized(req: NextRequest): boolean {
   const token = req.nextUrl.searchParams.get("token") || req.headers.get("x-seed-token") || "";

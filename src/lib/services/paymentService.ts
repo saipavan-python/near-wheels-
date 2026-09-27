@@ -4,16 +4,7 @@ import { moveStatus } from "./bookingService";
 import { notifyUser, notifyProvider } from "./notificationService";
 import { audit } from "./auditService";
 import { paymentSettled, expectedAmountPaise, roundMoney } from "./paymentGuard";
-import Razorpay from "razorpay";
-
-const razorpayClient = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || "",
-  key_secret: process.env.RAZORPAY_KEY_SECRET || "",
-});
-
-function hasRazorpayCreds(): boolean {
-  return !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
-}
+import { hasRazorpayCreds, getRazorpay } from "./razorpayClient";
 
 function getWebhookSecret(): string {
   return process.env.RAZORPAY_WEBHOOK_SECRET || process.env.PAYMENT_WEBHOOK_SECRET || "";
@@ -32,7 +23,7 @@ async function failPayment(paymentId: string, bookingId: string, detail: Record<
 async function fetchCapturedPayment(orderId: string | null): Promise<{ id: string | null; amount: number } | null> {
   if (!orderId) return null;
   try {
-    const resp: any = await razorpayClient.orders.fetchPayments(orderId);
+    const resp: any = await getRazorpay().orders.fetchPayments(orderId);
     const items: any[] = resp?.items || [];
     const captured = items.find((p) => p?.status === "captured");
     return captured ? { id: captured.id ?? null, amount: captured.amount ?? 0 } : null;
@@ -59,7 +50,7 @@ export async function initiatePayment(bookingId: string) {
   const isRazorpay = hasRazorpayCreds() && mode === "razorpay";
 
   if (isRazorpay) {
-    const order = await razorpayClient.orders.create({
+    const order = await getRazorpay().orders.create({
       amount: expectedAmountPaise(booking.totalAmount),
       currency: "INR",
       receipt: booking.code,
@@ -233,7 +224,7 @@ export async function refundPayment(
       : null;
     if (!gatewayPaymentId && payment.gatewayRef) {
       try {
-        const resp: any = await razorpayClient.orders.fetchPayments(payment.gatewayRef);
+        const resp: any = await getRazorpay().orders.fetchPayments(payment.gatewayRef);
         const captured = (resp?.items || []).find((p: any) => p?.status === "captured");
         gatewayPaymentId = captured?.id ?? null;
       } catch (e: any) {
@@ -249,7 +240,7 @@ export async function refundPayment(
     let refundStatus: string | undefined;
     try {
       const amt = Math.max(1, Math.round(refundAmount * 100));
-      const result: any = await razorpayClient.payments.refund(gatewayPaymentId, { speed: "optimum", amount: amt });
+      const result: any = await getRazorpay().payments.refund(gatewayPaymentId, { speed: "optimum", amount: amt });
       refundStatus = result?.status;
     } catch (e: any) {
       await audit("ADMIN", undefined, "REFUND_PAYMENT_FAILED", "Payment", paymentId, { reason: e?.message || "gateway error" });

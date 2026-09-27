@@ -2,21 +2,12 @@ import { prisma } from "../db";
 import { getSettings } from "../config";
 import { audit } from "./auditService";
 import { paymentSettled, expectedAmountPaise, roundMoney } from "./paymentGuard";
-import Razorpay from "razorpay";
-
-const razorpayClient = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || "",
-  key_secret: process.env.RAZORPAY_KEY_SECRET || "",
-});
-
-function hasRazorpayCreds(): boolean {
-  return !!(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
-}
+import { hasRazorpayCreds, getRazorpay } from "./razorpayClient";
 
 async function fetchCapturedPayment(orderId: string | null): Promise<{ id: string | null; amount: number } | null> {
   if (!orderId) return null;
   try {
-    const resp: any = await razorpayClient.orders.fetchPayments(orderId);
+    const resp: any = await getRazorpay().orders.fetchPayments(orderId);
     const items: any[] = resp?.items || [];
     const captured = items.find((p: any) => p?.status === "captured");
     return captured ? { id: captured.id ?? null, amount: captured.amount ?? 0 } : null;
@@ -37,7 +28,7 @@ export async function initiateShareRidePayment(rideId: string) {
   const isRazorpay = hasRazorpayCreds() && mode === "razorpay";
 
   if (isRazorpay) {
-    const order = await razorpayClient.orders.create({
+    const order = await getRazorpay().orders.create({
       amount: expectedAmountPaise(ride.totalAmount),
       currency: "INR",
       receipt: ride.id,

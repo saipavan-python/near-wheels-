@@ -9,6 +9,7 @@ const hsts = process.env.NODE_ENV === "production"
 
 const nextConfig = {
   poweredByHeader: false,
+  output: "standalone",
   images: { unoptimized: true },
   async rewrites() {
     return [

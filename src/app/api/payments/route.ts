@@ -7,11 +7,6 @@ import Razorpay from "razorpay";
 
 export const runtime = "nodejs";
 
-const razorpayClient = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || "",
-  key_secret: process.env.RAZORPAY_KEY_SECRET || "",
-});
-
 function getWebhookSecret(): string {
   return process.env.RAZORPAY_WEBHOOK_SECRET || process.env.PAYMENT_WEBHOOK_SECRET || "";
 }

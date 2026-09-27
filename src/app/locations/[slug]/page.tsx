@@ -8,7 +8,7 @@ import { haversineKm } from "@/lib/geo";
 import { garageStatus } from "@/lib/services/garageHours";
 import { siteUrl } from "@/lib/seo";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 const CITIES = {
   kurnool: { name: "Kurnool", lat: 15.8281, lng: 78.0373, radiusKm: 60 },
