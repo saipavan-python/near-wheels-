@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "regions": ["bom1"],
+  "buildCommand": "prisma generate && next build",
+  "installCommand": "npm ci --include=optional",
+  "functions": {
+    "src/app/api/upload/route.ts": {
+      "memory": 2048,
+      "maxDuration": 60
+    },
+    "src/app/api/ai/trip-plan/route.ts": {
+      "maxDuration": 60
+    }
+  }
+}
