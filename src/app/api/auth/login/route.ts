@@ -9,6 +9,7 @@ import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
+  try {
   const ip = getClientIp(req);
   const rl = checkRateLimit(`login:ip:${ip}`, 10, 60_000);
   if (!rl.allowed) return fail("Too many login attempts. Try again shortly.", 429);
@@ -54,4 +55,9 @@ export async function POST(req: NextRequest) {
     path: "/",
   });
   return res;
+  } catch (error) {
+    // Keep infrastructure and Prisma details out of the public response.
+    console.error("Password login failed", error instanceof Error ? error.name : "unknown error");
+    return fail("Login is temporarily unavailable. Please try again shortly.", 503);
+  }
 }

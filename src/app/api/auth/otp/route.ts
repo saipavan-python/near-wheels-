@@ -12,6 +12,7 @@ let lastOtpPurge = 0;
 
 /** Request an OTP (dev mode returns the code so the demo is usable). */
 export async function POST(req: NextRequest) {
+  try {
   const now = Date.now();
   if (now - lastOtpPurge > 60_000) {
     lastOtpPurge = now;
@@ -45,6 +46,9 @@ export async function POST(req: NextRequest) {
     await sendOtpSms(phone, code);
   } catch (sendErr) {
     if (process.env.NODE_ENV === "production") {
+      // Do not leave an unusable code behind: it counts against the user's
+      // retry limit even though no SMS was delivered.
+      await prisma.otpCode.deleteMany({ where: { phone, code: hashOtpCode(code), consumed: false } }).catch(() => undefined);
       return fail("SMS service is not configured. Please try again later.", 503);
     }
     console.warn("OTP send failed, continuing in dev mode:", (sendErr as Error).message);
@@ -58,10 +62,15 @@ export async function POST(req: NextRequest) {
       ? "Development mode: OTP shown here instead of SMS."
       : "OTP sent via SMS.",
   });
+  } catch (error) {
+    console.error("OTP request failed", error instanceof Error ? error.name : "unknown error");
+    return fail("One-time code service is temporarily unavailable. Please try again shortly.", 503);
+  }
 }
 
 /** Verify OTP → create/find customer → signed session cookie. */
 export async function PUT(req: NextRequest) {
+  try {
   const { checkRateLimit, getClientIp } = await import("@/lib/rateLimit");
   const ip = getClientIp(req);
   const rlIp = checkRateLimit(`otp:verify:ip:${ip}`, 20, 60_000);
@@ -83,12 +92,6 @@ export async function PUT(req: NextRequest) {
 
   let user = await prisma.user.findUnique({ where: { phone } });
   if (user && user.status !== "ACTIVE") return fail("This account is unavailable. Contact support for help.", 403);
-  const claimed = await prisma.otpCode.updateMany({
-    where: { id: otp.id, consumed: false, expiresAt: { gt: new Date() } },
-    data: { consumed: true },
-  });
-  if (claimed.count !== 1) return fail("That OTP is invalid or expired");
-
   if (!user) {
     // Check if there's a Google user with same email and phone missing? For OTP, we create with phone.
     // If a Google user exists with same phone placeholder, link
@@ -108,6 +111,14 @@ export async function PUT(req: NextRequest) {
     }
   }
 
+  // Consume only after account lookup/creation succeeds. Otherwise a transient
+  // database error could burn a valid OTP and make registration impossible to retry.
+  const claimed = await prisma.otpCode.updateMany({
+    where: { id: otp.id, consumed: false, expiresAt: { gt: new Date() } },
+    data: { consumed: true },
+  });
+  if (claimed.count !== 1) return fail("That OTP is invalid or expired");
+
   const token = createSessionToken({ userId: user.id, role: user.role, name: user.name || undefined });
   const res = ok({ user: { id: user.id, name: user.name, phone: user.phone, role: user.role } });
   res.cookies.set(sessionCookieOptions().name, token, {
@@ -118,4 +129,8 @@ export async function PUT(req: NextRequest) {
     path: "/",
   });
   return res;
+  } catch (error) {
+    console.error("OTP verification failed", error instanceof Error ? error.name : "unknown error");
+    return fail("One-time code verification is temporarily unavailable. Please try again shortly.", 503);
+  }
 }

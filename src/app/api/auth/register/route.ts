@@ -13,6 +13,7 @@ function isValidEmail(email: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
+  try {
   const ip = getClientIp(req);
   const rl = checkRateLimit(`register:${ip}`, 5, 60 * 60_000);
   if (!rl.allowed) return fail("Too many registrations. Try again later.", 429);
@@ -34,7 +35,8 @@ export async function POST(req: NextRequest) {
   const pwErr = validatePasswordStrength(password);
   if (pwErr) return fail(pwErr);
 
-  // Check duplicates
+  // Check duplicates early for a friendly response. The unique constraints
+  // remain authoritative because two registrations can race between these checks.
   if (emailRaw) {
     const existsEmail = await prisma.user.findUnique({ where: { email: emailRaw } });
     if (existsEmail) return fail("An account with this email already exists. Try logging in.", 409);
@@ -69,4 +71,15 @@ export async function POST(req: NextRequest) {
     path: "/",
   });
   return res;
+  } catch (error) {
+    // A duplicate can win the race after the preflight checks above.
+    const code = (error as { code?: string })?.code;
+    if (code === "P2002") {
+      return fail("An account with this email or phone already exists. Try logging in.", 409);
+    }
+
+    // Avoid returning database/provider details to the browser.
+    console.error("Password registration failed", error instanceof Error ? error.name : "unknown error");
+    return fail("Registration is temporarily unavailable. Please try again shortly.", 503);
+  }
 }
