@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
   const existingByPhone = await prisma.provider.findFirst({ where: { phone, type: dbType } });
   if (existingByPhone) return fail("A provider with this phone already exists for this category");
 
-  const session = getSession();
+  const session = await getSession();
   if (!session) return fail("Please login first (via phone OTP or Google) to register as provider.", 401);
   let userId = session.userId;
   // Upgrade role if needed

@@ -1,7 +1,17 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, useRef } from "react";
 import { api } from "@/lib/ui";
+
+function safeReturnTo(value: string | null): string | null {
+  if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\") || /[\u0000-\u001f]/.test(value)) return null;
+  try {
+    const url = new URL(value, window.location.origin);
+    return url.origin === window.location.origin ? `${url.pathname}${url.search}${url.hash}` : null;
+  } catch {
+    return null;
+  }
+}
 
 declare global {
   interface Window {
@@ -72,7 +82,7 @@ export default function GoogleLoginButton({ onSuccess, label = "Continue with Go
         window.dispatchEvent(new Event("nw:auth"));
         // Handle pending booking redirect
         try {
-          const next = sessionStorage.getItem("nw_redirect_next");
+          const next = safeReturnTo(sessionStorage.getItem("nw_redirect_next"));
           if (next) {
             sessionStorage.removeItem("nw_redirect_next");
             setTimeout(() => { window.location.href = next; }, 100);

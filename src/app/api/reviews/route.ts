@@ -33,7 +33,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = getSession();
+  const session = await getSession();
   if (!session) return fail("Login required to review", 401);
   const b = await req.json().catch(() => ({}));
   const bookingId = String(b.bookingId || "");
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const session = getSession();
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
   const b = await req.json().catch(() => ({}));
   const reviewId = String(b.reviewId || "");

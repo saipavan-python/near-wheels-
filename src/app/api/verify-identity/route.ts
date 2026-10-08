@@ -12,7 +12,7 @@ export const runtime = "nodejs";
  * GET  → current verification status + summary fields.
  */
 export async function GET() {
-  const session = getSession();
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
@@ -41,7 +41,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = getSession();
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
 
   const b = await req.json().catch(() => ({}));

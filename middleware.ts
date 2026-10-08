@@ -10,7 +10,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export function middleware(request: NextRequest) {
   const incoming = request.headers.get("x-request-id") || "";
   const requestId = UUID_RE.test(incoming) ? incoming : crypto.randomUUID();
-  const response = NextResponse.next();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-request-id", requestId);
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("x-request-id", requestId);
   return response;
 }

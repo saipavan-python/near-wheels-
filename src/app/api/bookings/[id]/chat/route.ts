@@ -16,11 +16,11 @@ async function isParticipant(booking: any, session: any): Promise<{ ok: boolean;
   return { ok: false, role: null };
 }
 
-export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
-  const session = getSession();
+export async function GET(req: NextRequest, ctx: { params: Promise<{  id: string  }> }) {
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
 
-  const booking = await prisma.booking.findUnique({ where: { id: ctx.params.id } });
+  const booking = await prisma.booking.findUnique({ where: { id: (await ctx.params).id } });
   if (!booking) return fail("Booking not found", 404);
 
   const participant = await isParticipant(booking, session);
@@ -51,15 +51,15 @@ export async function GET(req: NextRequest, ctx: { params: { id: string } }) {
   });
 }
 
-export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
-  const session = getSession();
+export async function POST(req: NextRequest, ctx: { params: Promise<{  id: string  }> }) {
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
 
   const ip = getClientIp(req);
   const rl = checkRateLimit(`chat:${session.userId}:${ip}`, 20, 60_000);
   if (!rl.allowed) return fail("Too many messages", 429);
 
-  const booking = await prisma.booking.findUnique({ where: { id: ctx.params.id } });
+  const booking = await prisma.booking.findUnique({ where: { id: (await ctx.params).id } });
   if (!booking) return fail("Booking not found", 404);
 
   const participant = await isParticipant(booking, session);

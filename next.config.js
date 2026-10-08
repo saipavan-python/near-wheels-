@@ -9,7 +9,7 @@ const hsts = process.env.NODE_ENV === "production"
 
 const nextConfig = {
   poweredByHeader: false,
-  output: "standalone",
+  outputFileTracingRoot: __dirname,
   images: { unoptimized: true },
   async rewrites() {
     return [

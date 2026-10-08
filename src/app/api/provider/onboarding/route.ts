@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   if (selectedCategories.length === 0) return fail("Please select at least one asset or service category");
 
   // Determine user context
-  let session = getSession();
+  let session = await getSession();
   let userId = session?.userId;
 
   if (!userId) {

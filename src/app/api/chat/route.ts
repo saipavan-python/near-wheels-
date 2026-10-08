@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     const message = String(body.message || "").slice(0, 2000);
     if (!message.trim()) return fail("Empty message");
 
-    const session = getSession();
+    const session = await getSession();
     let customerId: string | null = null;
     let customerName: string | null = null;
     if (session?.role === "CUSTOMER" || session?.role === "ADMIN") {

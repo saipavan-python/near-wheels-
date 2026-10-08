@@ -7,7 +7,7 @@ import { operatorForUser, parseDateOnly, validateStops } from "@/lib/services/ya
 export const runtime = "nodejs";
 
 async function getOperator() {
-  const session = getSession();
+  const session = await getSession();
   if (!session) return { error: fail("Authentication required", 401) };
   const operator = await operatorForUser(session.userId);
   if (!operator) return { error: fail("Vehicle-owner access required", 403) };
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
   if (!vehicle) return fail("Select an active bus owned by your operator account");
   const driverId = body.driverId ? String(body.driverId) : null;
   if (driverId) {
-    const driver = await prisma.driverProfile.findFirst({ where: { id: driverId, provider: { userId: getSession()!.userId } } });
+    const driver = await prisma.driverProfile.findFirst({ where: { id: driverId, provider: { userId: (await getSession())!.userId } } });
     if (!driver) return fail("Selected driver is not managed by your operator account");
   }
 

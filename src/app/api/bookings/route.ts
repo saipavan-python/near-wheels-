@@ -6,7 +6,7 @@ import { createBooking, bookingsForCustomer, BookingConflictError } from "@/lib/
 export const runtime = "nodejs";
 
 export async function GET() {
-  const session = getSession();
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
   // Allow any authenticated role to view their own bookings as customer (provider may also book)
   const bookings = await bookingsForCustomer(session.userId);
@@ -14,7 +14,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = getSession();
+  const session = await getSession();
   if (!session) return fail("Please log in to book. You can continue browsing without an account.", 401);
   const { checkRateLimit, getClientIp } = await import("@/lib/rateLimit");
   const ip = getClientIp(req);
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   // ── Identity gate: self-drive rentals require a driving licence on file ──
   const kind = String(b.kind || "");
   if (kind === "VEHICLE_SELF_DRIVE" && user) {
-    const verified = user.verificationStatus === "VERIFIED" || user.verificationStatus === "PENDING";
+    const verified = user.verificationStatus === "VERIFIED";
     if (!verified) {
       return ok(
         {

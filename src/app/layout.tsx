@@ -45,38 +45,32 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-/* Insert JSON-LD into <head> - using hardcoded production URL */
-const jsonLdMarkup = `
-<script type="application/ld+json">
-{
+const organizationJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
-  "name": "Near Wheels",
-  "description": "A marketplace platform for India's road-transport and agri-services economy. Ride sharing, vehicle rentals, garages, driving schools, drone spraying, and bus operators in one premium mobility platform powered by an AI concierge that knows what's available near you.",
-  "url": "https://near-wheels-q4bb.vercel.app",
-  "logo": "/icon.svg",
-  "sameAs": [
-    "https://twitter.com/nearwheels",
-    "https://facebook.com/nearwheels"
-  ]
-}
-</script>
+  name: "Near Wheels",
+  description: "A marketplace platform for India's road-transport and agri-services economy. Ride sharing, vehicle rentals, garages, driving schools, drone spraying, and bus operators in one premium mobility platform powered by an AI concierge that knows what's available near you.",
+  url: siteUrl,
+  logo: `${siteUrl}/icon.svg`,
+  sameAs: ["https://twitter.com/nearwheels", "https://facebook.com/nearwheels"],
+};
 
-<script type="application/ld+json">
-{
+const websiteJsonLd = {
   "@context": "https://schema.org",
   "@type": "WebSite",
-  "name": "Near Wheels",
-  "url": "https://near-wheels-q4bb.vercel.app",
-  "description": "Find nearby car rentals, professional drivers, garages and vehicle services with Near Wheels.",
-  "potentialAction": {
+  name: "Near Wheels",
+  url: siteUrl,
+  description: "Find nearby car rentals, professional drivers, garages and vehicle services with Near Wheels.",
+  potentialAction: {
     "@type": "SearchAction",
-    "target": "https://near-wheels-q4bb.vercel.app/results?q={search_term_string}",
-    "query-input": "required name=search_term_string"
-  }
+    target: `${siteUrl}/results?q={search_term_string}`,
+    "query-input": "required name=search_term_string",
+  },
+};
+
+function jsonLd(value: object) {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
 }
-</script>
-`;
 
 /* eslint-disable-next-line @next/next/no-page-custom-font */
 export const viewport: Viewport = {
@@ -95,7 +89,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap"
           rel="stylesheet"
         />
-        {jsonLdMarkup}
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(organizationJsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(websiteJsonLd) }} />
       </head>
       <body className="flex min-h-screen flex-col">
         <Header />

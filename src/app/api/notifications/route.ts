@@ -26,7 +26,7 @@ async function resolveScope(sessionUserId: string) {
 }
 
 export async function GET() {
-  const s = getSession();
+  const s = await getSession();
   if (!s) return fail("Login required", 401);
 
   const where = await resolveScope(s.userId);
@@ -39,7 +39,7 @@ export async function GET() {
 }
 
 export async function POST() {
-  const s = getSession();
+  const s = await getSession();
   if (!s) return fail("Login required", 401);
 
   const where = await resolveScope(s.userId);

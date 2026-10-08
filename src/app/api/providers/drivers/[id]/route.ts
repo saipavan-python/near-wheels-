@@ -1,4 +1,4 @@
-﻿import { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
@@ -10,7 +10,7 @@ const DRIVER_STATUSES = ["ACTIVE", "INACTIVE", "SUSPENDED"] as const;
 const DRIVER_LICENSES = ["LMV", "LMV_TR", "HMV", "HPMV", "AUTO_RICKSHAW"] as const; // used by PATCH below
 
 async function requireProvider() {
-  const session = getSession();
+  const session = await getSession();
   if (!session) throw new Error("Login required");
   if (session.role !== "PROVIDER" && session.role !== "ADMIN") throw new Error("Provider access required");
   const provider = await prisma.provider.findFirst({ where: { userId: session.userId } });
@@ -25,10 +25,10 @@ async function ownDriver(driverId: string, providerId: string, role: string) {
   return dr;
 }
 
-export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
+export async function GET(_req: NextRequest, ctx: { params: Promise<{  id: string  }> }) {
   try {
     const { provider } = await requireProvider();
-    const dr = await ownDriver(ctx.params.id, provider.id, getSession()?.role || "");
+    const dr = await ownDriver((await ctx.params).id, provider.id, (await getSession())?.role || "");
     if (dr === null) return fail("Driver not found", 404);
     if (dr === undefined) return fail("Not your driver", 403);
 
@@ -50,10 +50,10 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
   }
 }
 
-export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, ctx: { params: Promise<{  id: string  }> }) {
   try {
     const { provider } = await requireProvider();
-    const dr = await ownDriver(ctx.params.id, provider.id, getSession()?.role || "");
+    const dr = await ownDriver((await ctx.params).id, provider.id, (await getSession())?.role || "");
     if (dr === null) return fail("Driver not found", 404);
     if (dr === undefined) return fail("Not your driver", 403);
 
@@ -99,7 +99,7 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
     }
 
     data.updatedAt = new Date();
-    const updated = await prisma.driver.update({ where: { id: ctx.params.id }, data });
+    const updated = await prisma.driver.update({ where: { id: (await ctx.params).id }, data });
 
     if (b.pricing) {
       const p = b.pricing;
@@ -124,15 +124,15 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
   }
 }
 
-export async function DELETE(_req: NextRequest, ctx: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, ctx: { params: Promise<{  id: string  }> }) {
   try {
     const { provider } = await requireProvider();
-    const dr = await ownDriver(ctx.params.id, provider.id, getSession()?.role || "");
+    const dr = await ownDriver((await ctx.params).id, provider.id, (await getSession())?.role || "");
     if (dr === null) return fail("Driver not found", 404);
     if (dr === undefined) return fail("Not your driver", 403);
 
     // Soft delete: INACTIVE preserves booking history
-    const updated = await prisma.driver.update({ where: { id: ctx.params.id }, data: { status: "INACTIVE" } });
+    const updated = await prisma.driver.update({ where: { id: (await ctx.params).id }, data: { status: "INACTIVE" } });
     await prisma.driverAvailability.deleteMany({ where: { driverId: dr.id } });
     return ok({ driver: updated, message: "Driver deactivated" });
   } catch (e: any) {

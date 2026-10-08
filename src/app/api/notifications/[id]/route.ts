@@ -6,11 +6,11 @@ import { getSession } from "@/lib/session";
 export const runtime = "nodejs";
 
 /** PATCH /api/notifications/[id] — mark a single notification as read. */
-export async function PATCH(_req: NextRequest, { params }: { params: { id: string } }) {
-  const s = getSession();
+export async function PATCH(_req: NextRequest, { params }: { params: Promise<{  id: string  }> }) {
+  const s = await getSession();
   if (!s) return fail("Login required", 401);
 
-  const notif = await prisma.notification.findUnique({ where: { id: params.id } });
+  const notif = await prisma.notification.findUnique({ where: { id: (await params).id } });
   if (!notif) return fail("Notification not found", 404);
 
   const providers = await prisma.provider.findMany({

@@ -1,4 +1,4 @@
-﻿import { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
@@ -7,7 +7,7 @@ import { startOfDay, endOfDay } from "@/lib/services/availabilityService";
 export const runtime = "nodejs";
 
 async function requireProvider() {
-  const session = getSession();
+  const session = await getSession();
   if (!session) throw new Error("Login required");
   if (session.role !== "PROVIDER" && session.role !== "ADMIN") throw new Error("Provider access required");
   const provider = await prisma.provider.findFirst({ where: { userId: session.userId } });
@@ -15,12 +15,12 @@ async function requireProvider() {
   return { session, provider };
 }
 
-export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
+export async function GET(_req: NextRequest, ctx: { params: Promise<{  id: string  }> }) {
   try {
     const { provider } = await requireProvider();
-    const v = await prisma.vehicle.findUnique({ where: { id: ctx.params.id } });
+    const v = await prisma.vehicle.findUnique({ where: { id: (await ctx.params).id } });
     if (!v) return fail("Vehicle not found", 404);
-    if (v.providerId !== provider.id && getSession()?.role !== "ADMIN") return fail("Not your vehicle", 403);
+    if (v.providerId !== provider.id && (await getSession())?.role !== "ADMIN") return fail("Not your vehicle", 403);
 
     const availabilities = await prisma.vehicleAvailability.findMany({
       where: { vehicleId: v.id },
@@ -47,10 +47,10 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
   }
 }
 
-export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
+export async function POST(req: NextRequest, ctx: { params: Promise<{  id: string  }> }) {
   try {
     const { provider, session } = await requireProvider();
-    const v = await prisma.vehicle.findUnique({ where: { id: ctx.params.id } });
+    const v = await prisma.vehicle.findUnique({ where: { id: (await ctx.params).id } });
     if (!v) return fail("Vehicle not found", 404);
     if (v.providerId !== provider.id && session.role !== "ADMIN") return fail("Not your vehicle", 403);
     if (v.status !== "ACTIVE") return fail("Vehicle must be ACTIVE to manage availability", 400);

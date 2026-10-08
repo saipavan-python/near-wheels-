@@ -1,4 +1,4 @@
-﻿import { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 import { getSession } from "@/lib/session";
 import { prisma } from "@/lib/db";
 import { ok, fail } from "@/lib/http";
@@ -7,7 +7,7 @@ import { startOfDay, endOfDay } from "@/lib/services/availabilityService";
 export const runtime = "nodejs";
 
 async function requireProvider() {
-  const session = getSession();
+  const session = await getSession();
   if (!session) throw new Error("Login required");
   if (session.role !== "PROVIDER" && session.role !== "ADMIN") throw new Error("Provider access required");
   const provider = await prisma.provider.findFirst({ where: { userId: session.userId } });
@@ -15,12 +15,12 @@ async function requireProvider() {
   return { session, provider };
 }
 
-export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
+export async function GET(_req: NextRequest, ctx: { params: Promise<{  id: string  }> }) {
   try {
     const { provider } = await requireProvider();
-    const dr = await prisma.driver.findUnique({ where: { id: ctx.params.id } });
+    const dr = await prisma.driver.findUnique({ where: { id: (await ctx.params).id } });
     if (!dr) return fail("Driver not found", 404);
-    if (dr.providerId !== provider.id && getSession()?.role !== "ADMIN") return fail("Not your driver", 403);
+    if (dr.providerId !== provider.id && (await getSession())?.role !== "ADMIN") return fail("Not your driver", 403);
 
     const availabilities = await prisma.driverAvailability.findMany({
       where: { driverId: dr.id },
@@ -46,10 +46,10 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
   }
 }
 
-export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
+export async function POST(req: NextRequest, ctx: { params: Promise<{  id: string  }> }) {
   try {
     const { provider, session } = await requireProvider();
-    const dr = await prisma.driver.findUnique({ where: { id: ctx.params.id } });
+    const dr = await prisma.driver.findUnique({ where: { id: (await ctx.params).id } });
     if (!dr) return fail("Driver not found", 404);
     if (dr.providerId !== provider.id && session.role !== "ADMIN") return fail("Not your driver", 403);
     if (dr.status !== "ACTIVE") return fail("Driver must be ACTIVE to manage availability", 400);

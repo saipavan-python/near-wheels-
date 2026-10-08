@@ -10,26 +10,33 @@ export const runtime = "nodejs";
 const CACHE_CONTROL = "public, s-maxage=3600, stale-while-revalidate=3600";
 
 export async function GET(req: NextRequest) {
-  const q = req.nextUrl.searchParams.get("q") || "";
-  const results = await searchLocations(q);
-  return ok(
-    {
-      locations: results.map((l) => ({
-        id: l.id,
-        name: l.name,
-        label: [l.name, l.type !== "CITY" ? l.type : null, l.district].filter(Boolean).join(", "),
-        lat: l.lat,
-        lng: l.lng,
-        type: l.type,
-      })),
-    },
-    { headers: { "Cache-Control": CACHE_CONTROL } }
-  );
+  const q = (req.nextUrl.searchParams.get("q") || "").slice(0, 100);
+  try {
+    const results = await searchLocations(q);
+    return ok(
+      {
+        locations: results.map((l) => ({
+          id: l.id,
+          name: l.name,
+          label: [l.name, l.type !== "CITY" ? l.type : null, l.district].filter(Boolean).join(", "),
+          lat: l.lat,
+          lng: l.lng,
+          type: l.type,
+        })),
+      },
+      { headers: { "Cache-Control": CACHE_CONTROL } }
+    );
+  } catch {
+    console.error("Location search unavailable", { requestId: req.headers.get("x-request-id") || undefined });
+    return fail("Location search is temporarily unavailable. Please try again shortly.", 503, {
+      locations: [],
+    });
+  }
 }
 
 /** Admin gazetteer additions (kept minimal). */
 export async function POST(req: NextRequest) {
-  const session = getSession();
+  const session = await getSession();
   if (!session || session.role !== "ADMIN") return fail("Admin login required", 403);
   const b = await req.json().catch(() => ({}));
   if (!b.name || typeof b.lat !== "number" || typeof b.lng !== "number")

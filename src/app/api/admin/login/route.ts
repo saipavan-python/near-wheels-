@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   const phone = String(b.phone || "").replace(/\D/g, "");
   const password = String(b.password || "");
   const user = await prisma.user.findFirst({ where: { phone, role: "ADMIN" } });
-  if (!user?.passwordHash) return fail("Invalid admin credentials", 401);
+  if (!user?.passwordHash || user.status !== "ACTIVE") return fail("Invalid admin credentials", 401);
 
   const [salt, hash] = user.passwordHash.split(":");
   const candidate = scryptSync(password, salt, 64);

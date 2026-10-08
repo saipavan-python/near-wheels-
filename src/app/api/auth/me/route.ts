@@ -6,10 +6,14 @@ import { prisma } from "@/lib/db";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const session = getSession();
+  const session = await getSession();
   if (!session) return ok({ user: null, capabilities: [], providerMemberships: [], admin: null });
   const user = await prisma.user.findUnique({ where: { id: session.userId } });
-  if (!user) return ok({ user: null, capabilities: [], providerMemberships: [], admin: null });
+  if (!user || user.status !== "ACTIVE") {
+    const response = ok({ user: null, capabilities: [], providerMemberships: [], admin: null });
+    if (user) response.cookies.delete("nw_session");
+    return response;
+  }
 
   const unread = await prisma.notification.count({ where: { userId: user.id, readAt: null } });
 
@@ -85,7 +89,7 @@ export async function GET() {
 }
 
 export async function DELETE() {
-  cookies().delete("nw_session");
+  (await cookies()).delete("nw_session");
   return ok({ loggedOut: true });
 }
 

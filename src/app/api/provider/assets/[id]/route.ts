@@ -6,12 +6,12 @@ import { checkProviderAccess } from "@/lib/rbac";
 
 export const runtime = "nodejs";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = getSession();
+export async function GET(req: NextRequest, { params }: { params: Promise<{  id: string  }> }) {
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
 
   const vehicle = await prisma.vehicle.findUnique({
-    where: { id: params.id },
+    where: { id: (await params).id },
     include: {
       provider: { select: { id: true, businessName: true, userId: true } },
       availabilities: { orderBy: { createdAt: "desc" } },
@@ -36,11 +36,11 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   });
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = getSession();
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{  id: string  }> }) {
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
 
-  const vehicle = await prisma.vehicle.findUnique({ where: { id: params.id } });
+  const vehicle = await prisma.vehicle.findUnique({ where: { id: (await params).id } });
   if (!vehicle) return fail("Asset not found", 404);
 
   const allowed = await checkProviderAccess(prisma, session.userId, vehicle.providerId, "assets.update");
@@ -49,7 +49,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const b = await req.json().catch(() => ({}));
 
   const updatedVehicle = await prisma.vehicle.update({
-    where: { id: params.id },
+    where: { id: (await params).id },
     data: {
       status: b.status != null ? String(b.status).toUpperCase() : vehicle.status,
       title: b.title != null ? String(b.title).trim() : vehicle.title,
@@ -101,16 +101,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return ok({ asset: updatedVehicle, message: "Asset updated successfully" });
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = getSession();
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{  id: string  }> }) {
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
 
-  const vehicle = await prisma.vehicle.findUnique({ where: { id: params.id } });
+  const vehicle = await prisma.vehicle.findUnique({ where: { id: (await params).id } });
   if (!vehicle) return fail("Asset not found", 404);
 
   const allowed = await checkProviderAccess(prisma, session.userId, vehicle.providerId, "assets.delete");
   if (!allowed) return fail("Access denied", 403);
 
-  await prisma.vehicle.delete({ where: { id: params.id } });
+  await prisma.vehicle.delete({ where: { id: (await params).id } });
   return ok({ message: "Asset deleted successfully" });
 }

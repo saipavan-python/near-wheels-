@@ -13,7 +13,7 @@ export interface AdminContext {
  * time; a demoted/suspended admin must not keep privileges for 30 days.
  */
 export async function requireAdmin(): Promise<AdminContext | null> {
-  const s = getSession();
+  const s = await getSession();
   if (!s) return null;
   const user = await prisma.user.findUnique({
     where: { id: s.userId },

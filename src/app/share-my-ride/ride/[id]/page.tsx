@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Car,
@@ -18,7 +18,8 @@ import {
 } from "lucide-react";
 import { inr } from "@/lib/ui";
 
-export default function RideDetailsPage({ params }: { params: { id: string } }) {
+export default function RideDetailsPage({ params }: { params: Promise<{  id: string  }> }) {
+  const { id } = use(params);
   const [ride, setRide] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -32,14 +33,14 @@ export default function RideDetailsPage({ params }: { params: { id: string } }) 
   const [driverContact, setDriverContact] = useState<{ name: string; phone: string } | null>(null);
 
   useEffect(() => {
-    fetch(`/api/share-rides/${params.id}`)
+    fetch(`/api/share-rides/${id}`)
       .then((r) => r.json())
       .then((d) => {
         setRide(d.ride);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [params.id]);
+  }, [id]);
 
   if (loading) {
     return <div className="py-20 text-center text-sm font-semibold text-slate-500">Loading ride details…</div>;

@@ -37,6 +37,8 @@ export async function POST(req: NextRequest) {
     return fail("Invalid credentials. Check email/phone and password.", 401);
   }
 
+  if (user.status !== "ACTIVE") return fail("This account is unavailable. Contact support for help.", 403);
+
   const okPw = verifyPassword(password, user.passwordHash);
   if (!okPw) return fail("Invalid credentials. Check email/phone and password.", 401);
 

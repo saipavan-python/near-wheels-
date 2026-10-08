@@ -1,6 +1,35 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #FFF4EC;
+  --color-brand-100: #FFE6D3;
+  --color-brand-200: #FFC8A6;
+  --color-brand-300: #FFA26F;
+  --color-brand-400: #FF8036;
+  --color-brand-500: #FF6A00;
+  --color-brand-600: #EF5F00;
+  --color-brand-700: #C64E00;
+  --color-brand-800: #9C3E00;
+  --color-brand-900: #742E00;
+  --color-ink: #111111;
+  --color-ink-soft: #242424;
+  --color-ink-mute: #77736D;
+  --color-ink-faint: #B7B5AF;
+  --color-paper: #F7F6F2;
+  --color-paper-deep: #E9E7E2;
+  --color-accent: #FF6A00;
+  --font-sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: Manrope, Inter, system-ui, sans-serif;
+  --shadow-card: 0 1px 2px rgba(17,17,17,.05), 0 6px 20px rgba(17,17,17,.07);
+  --shadow-lift: 0 4px 10px rgba(17,17,17,.08), 0 18px 40px rgba(17,17,17,.12);
+  --shadow-panel: 0 -8px 40px rgba(17,17,17,.16);
+  --animate-hero-zoom: hero-zoom 14s cubic-bezier(.22,1,.36,1) forwards;
+}
+
+@keyframes hero-zoom {
+  from { transform: scale(1); }
+  to { transform: scale(1.07); }
+}
 
 :root {
   color-scheme: light;
@@ -26,12 +55,20 @@ p {
   @apply bg-brand-500/20;
 }
 
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 min-h-[44px] active:scale-[0.98];
+}
+
+@utility badge {
+  @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold;
+}
+
 @layer components {
   .container-nw {
     @apply mx-auto w-full max-w-7xl px-4 md:px-6;
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 min-h-[44px] active:scale-[0.98];
+    @apply btn;
   }
   .btn-primary {
     @apply btn bg-brand-500 text-white hover:bg-brand-600 active:bg-brand-700;
@@ -52,7 +89,7 @@ p {
     @apply rounded-2xl border border-ink/[0.06] bg-white shadow-card;
   }
   .badge {
-    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold;
+    @apply badge;
   }
   .badge-green {
     @apply badge bg-emerald-100 text-emerald-800;

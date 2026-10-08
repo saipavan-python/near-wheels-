@@ -14,8 +14,8 @@ const getYatraPackage = cache((id: string) =>
   })
 );
 
-export async function generateMetadata({ params }: { params: { id: string } }) {
-  const found = await getYatraPackage(params.id);
+export async function generateMetadata({ params }: { params: Promise<{  id: string  }> }) {
+  const found = await getYatraPackage((await params).id);
   if (!found) return { title: "Yatra bus not found" };
   return {
     title: `${found.packageName} — Yatra Bus | Near Wheels`,
@@ -24,8 +24,8 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   };
 }
 
-export default async function YatraDetails({ params }: { params: { id: string } }) {
-  const found = await getYatraPackage(params.id);
+export default async function YatraDetails({ params }: { params: Promise<{  id: string  }> }) {
+  const found = await getYatraPackage((await params).id);
   if (!found || found.departureDate < new Date()) notFound();
   const pkg = publicPackage(found);
   return (

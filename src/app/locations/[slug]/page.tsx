@@ -15,24 +15,20 @@ const CITIES = {
   nandyal: { name: "Nandyal", lat: 15.4771, lng: 78.4807, radiusKm: 60 },
 } as const;
 
-export const dynamicParams = false;
+export const dynamicParams = true;
 
-export function generateStaticParams() {
-  return Object.keys(CITIES).map((slug) => ({ slug }));
-}
-
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const cfg = CITIES[params.slug as keyof typeof CITIES];
+export async function generateMetadata({ params }: { params: Promise<{  slug: string  }> }): Promise<Metadata> {
+  const cfg = CITIES[(await params).slug as keyof typeof CITIES];
   if (!cfg) return {};
   return {
     title: `Cars, Bikes & Garages in ${cfg.name} | Near Wheels`,
     description: `Rent cars, autos, bikes and pickups, hire verified drivers and find trusted garages in ${cfg.name} — book in minutes on Near Wheels.`,
-    alternates: { canonical: `/locations/${params.slug}` },
+    alternates: { canonical: `/locations/${(await params).slug}` },
   };
 }
 
-export default async function LocationPage({ params }: { params: { slug: string } }) {
-  const cfg = CITIES[params.slug as keyof typeof CITIES];
+export default async function LocationPage({ params }: { params: Promise<{  slug: string  }> }) {
+  const cfg = CITIES[(await params).slug as keyof typeof CITIES];
   if (!cfg) notFound();
 
   const [providers, vehicles, garages, drivers] = await Promise.all([

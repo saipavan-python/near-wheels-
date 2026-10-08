@@ -5,8 +5,8 @@ import { getSession } from "@/lib/session";
 
 export const runtime = "nodejs";
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const session = getSession();
+export async function POST(req: NextRequest, { params }: { params: Promise<{  id: string  }> }) {
+  const session = await getSession();
   if (!session) return fail("Authentication required", 401);
   const body = await req.json().catch(() => ({}));
   const requestedSeats: number[] = Array.isArray(body.seatNumbers) ? Array.from(new Set(body.seatNumbers.map(Number))) : [];
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   try {
     const booking = await prisma.$transaction(async (tx) => {
-      const pkg = await tx.yatraBusPackage.findFirst({ where: { id: params.id, status: "PUBLISHED", isPublished: true, isActive: true } });
+      const pkg = await tx.yatraBusPackage.findFirst({ where: { id: (await params).id, status: "PUBLISHED", isPublished: true, isActive: true } });
       if (!pkg || pkg.departureDate < new Date()) throw new Error("This journey is no longer bookable");
       if (requestedSeats.length > pkg.totalSeats - pkg.bookedSeats) throw new Error("Not enough seats available");
 

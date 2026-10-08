@@ -1,4 +1,4 @@
-﻿import { prisma } from "../db";
+import { prisma } from "../db";
 import { getSettings, FREE_MODE } from "../config";
 import { moveStatus } from "./bookingService";
 import { notifyUser, notifyProvider } from "./notificationService";

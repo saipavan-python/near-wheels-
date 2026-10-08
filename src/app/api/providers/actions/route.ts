@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 
 /** Provider-side actions on their own bookings + availability toggle. */
 export async function POST(req: NextRequest) {
-  const session = getSession();
+  const session = await getSession();
   if (!session || session.role !== "PROVIDER") return fail("Provider login required", 403);
   const provider = await prisma.provider.findFirst({ where: { userId: session.userId } });
   if (!provider) return fail("No provider profile for this account", 404);

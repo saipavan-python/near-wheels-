@@ -16,7 +16,7 @@ const VALID_REASONS = [
 ];
 
 export async function GET(req: NextRequest) {
-  const session = getSession();
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
 
   const { searchParams } = new URL(req.url);
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = getSession();
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
 
   const b = await req.json().catch(() => ({}));

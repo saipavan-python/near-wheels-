@@ -6,7 +6,7 @@ import { ok, fail } from "@/lib/http";
 export const runtime = "nodejs";
 
 async function requireProvider() {
-  const session = getSession();
+  const session = await getSession();
   if (!session) throw new Error("Login required");
   if (session.role !== "PROVIDER" && session.role !== "ADMIN") throw new Error("Provider access required");
   const provider = await prisma.provider.findFirst({ where: { userId: session.userId } });
@@ -14,14 +14,14 @@ async function requireProvider() {
   return { session, provider };
 }
 
-export async function PATCH(req: NextRequest, ctx: { params: { id: string; availabilityId: string } }) {
+export async function PATCH(req: NextRequest, ctx: { params: Promise<{  id: string; availabilityId: string  }> }) {
   try {
     const { provider } = await requireProvider();
-    const dr = await prisma.driver.findUnique({ where: { id: ctx.params.id } });
+    const dr = await prisma.driver.findUnique({ where: { id: (await ctx.params).id } });
     if (!dr) return fail("Driver not found", 404);
-    if (dr.providerId !== provider.id && getSession()?.role !== "ADMIN") return fail("Not your driver", 403);
+    if (dr.providerId !== provider.id && (await getSession())?.role !== "ADMIN") return fail("Not your driver", 403);
 
-    const a = await prisma.driverAvailability.findUnique({ where: { id: ctx.params.availabilityId } });
+    const a = await prisma.driverAvailability.findUnique({ where: { id: (await ctx.params).availabilityId } });
     if (!a || a.driverId !== dr.id) return fail("Availability not found", 404);
 
     const b = await req.json().catch(() => ({}));
@@ -42,14 +42,14 @@ export async function PATCH(req: NextRequest, ctx: { params: { id: string; avail
   }
 }
 
-export async function DELETE(_req: NextRequest, ctx: { params: { id: string; availabilityId: string } }) {
+export async function DELETE(_req: NextRequest, ctx: { params: Promise<{  id: string; availabilityId: string  }> }) {
   try {
     const { provider } = await requireProvider();
-    const dr = await prisma.driver.findUnique({ where: { id: ctx.params.id } });
+    const dr = await prisma.driver.findUnique({ where: { id: (await ctx.params).id } });
     if (!dr) return fail("Driver not found", 404);
-    if (dr.providerId !== provider.id && getSession()?.role !== "ADMIN") return fail("Not your driver", 403);
+    if (dr.providerId !== provider.id && (await getSession())?.role !== "ADMIN") return fail("Not your driver", 403);
 
-    const a = await prisma.driverAvailability.findUnique({ where: { id: ctx.params.availabilityId } });
+    const a = await prisma.driverAvailability.findUnique({ where: { id: (await ctx.params).availabilityId } });
     if (!a || a.driverId !== dr.id) return fail("Availability not found", 404);
 
     await prisma.driverAvailability.delete({ where: { id: a.id } });

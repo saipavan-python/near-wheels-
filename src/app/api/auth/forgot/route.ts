@@ -89,8 +89,16 @@ export async function PUT(req: NextRequest) {
   const user = await prisma.user.findUnique({ where: { phone } });
   if (!user || user.status !== "ACTIVE") return fail("That OTP is invalid or expired");
 
-  await prisma.otpCode.update({ where: { id: otp.id }, data: { consumed: true } });
-  await prisma.user.update({ where: { id: user.id }, data: { passwordHash: hashPassword(newPassword) } });
+  const saved = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.otpCode.updateMany({
+      where: { id: otp.id, consumed: false, expiresAt: { gt: new Date() } },
+      data: { consumed: true },
+    });
+    if (claimed.count !== 1) return false;
+    await tx.user.update({ where: { id: user.id }, data: { passwordHash: hashPassword(newPassword) } });
+    return true;
+  });
+  if (!saved) return fail("That OTP is invalid or expired");
 
   await audit("SYSTEM", user.id, "PASSWORD_RESET", "User", user.id, { via: "otp" });
 

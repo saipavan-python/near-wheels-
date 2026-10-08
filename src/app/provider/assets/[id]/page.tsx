@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Save, Trash2, Calendar, Power, AlertTriangle, ShieldCheck } from "lucide-react";
 import { api } from "@/lib/ui";
 
-export default function EditAssetPage({ params }: { params: { id: string } }) {
+export default async function EditAssetPage({ params }: { params: Promise<{  id: string  }> }) {
   const router = useRouter();
   const [asset, setAsset] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -23,7 +23,7 @@ export default function EditAssetPage({ params }: { params: { id: string } }) {
 
   const loadAsset = async () => {
     setLoading(true);
-    const r = await fetch(`/api/provider/assets/${params.id}`).then((res) => res.json());
+    const r = await fetch(`/api/provider/assets/${(await params).id}`).then((res) => res.json());
     setLoading(false);
     if (r.ok) {
       const a = r.data.asset;
@@ -42,7 +42,7 @@ export default function EditAssetPage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     loadAsset();
-  }, [params.id]);
+  }, [(await params).id]);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -60,7 +60,7 @@ export default function EditAssetPage({ params }: { params: { id: string } }) {
       },
     };
 
-    const r = await api<{ message: string }>(`/api/provider/assets/${params.id}`, {
+    const r = await api<{ message: string }>(`/api/provider/assets/${(await params).id}`, {
       method: "PATCH",
       json: payload,
     });
@@ -74,7 +74,7 @@ export default function EditAssetPage({ params }: { params: { id: string } }) {
   async function handleDelete() {
     if (!confirm("Are you sure you want to delete this asset listing?")) return;
     setBusy(true);
-    const r = await api(`/api/provider/assets/${params.id}`, { method: "DELETE" });
+    const r = await api(`/api/provider/assets/${(await params).id}`, { method: "DELETE" });
     setBusy(false);
     if (r.ok) router.push("/provider/assets");
     else setErr(r.data.error || "Could not delete asset");

@@ -22,9 +22,9 @@ const uploadsDir = process.env.UPLOAD_DIR || path.join(process.cwd(), "data", "u
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { file: string } }
+  { params }: { params: Promise<{  file: string  }> }
 ) {
-  const name = params.file || "";
+  const name = (await params).file || "";
   // Reject path traversal / dotfiles / non-file names
   if (!name || name.includes("..") || name.includes("/") || name.includes("\\") || name.startsWith(".")) {
     return new NextResponse("Not found", { status: 404 });

@@ -36,7 +36,7 @@ function isValidImageMagic(buffer: Buffer, mime: string): boolean {
  */
 export async function POST(req: NextRequest) {
   try {
-    const session = getSession();
+    const session = await getSession();
     if (!session) return NextResponse.json({ ok: false, error: "Login required to upload" }, { status: 401 });
 
     const ip = getClientIp(req);

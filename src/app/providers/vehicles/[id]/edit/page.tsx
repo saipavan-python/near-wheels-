@@ -8,15 +8,15 @@ import { ArrowLeft } from "lucide-react";
 
 export const runtime = "nodejs";
 
-export default async function EditVehiclePage({ params }: { params: { id: string } }) {
-  const session = getSession();
-  if (!session) redirect(`/login?next=/providers/vehicles/${params.id}/edit`);
+export default async function EditVehiclePage({ params }: { params: Promise<{  id: string  }> }) {
+  const session = await getSession();
+  if (!session) redirect(`/login?next=/providers/vehicles/${(await params).id}/edit`);
   if (session.role !== "PROVIDER" && session.role !== "ADMIN") redirect("/providers/register");
 
   const provider = await prisma.provider.findFirst({ where: { userId: session.userId } });
   if (!provider) redirect("/providers/register");
 
-  const vehicle = await prisma.vehicle.findUnique({ where: { id: params.id } });
+  const vehicle = await prisma.vehicle.findUnique({ where: { id: (await params).id } });
   if (!vehicle) notFound();
   if (vehicle.providerId !== provider.id && session.role !== "ADMIN") notFound();
 

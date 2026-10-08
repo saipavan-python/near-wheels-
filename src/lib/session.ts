@@ -41,25 +41,35 @@ export function createSessionToken(payload: Omit<SessionPayload, "exp">): string
 }
 
 export function verifySessionToken(token: string | undefined | null): SessionPayload | null {
-  if (!token || !token.includes(".")) return null;
-  const [body, sig] = token.split(".");
+  if (!token || token.length > 4096) return null;
+  const parts = token.split(".");
+  if (parts.length !== 2) return null;
+  const [body, sig] = parts;
+  if (!body || !/^[A-Za-z0-9_-]{43}$/.test(sig)) return null;
   try {
     const expected = sign(body);
     const a = Buffer.from(sig);
     const b = Buffer.from(expected);
     if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-    const payload = JSON.parse(Buffer.from(body, "base64url").toString()) as SessionPayload;
-    if (payload.exp * 1000 < Date.now()) return null;
-    return payload;
+    const payload: unknown = JSON.parse(Buffer.from(body, "base64url").toString());
+    if (!payload || typeof payload !== "object") return null;
+    const session = payload as Partial<SessionPayload>;
+    if (
+      typeof session.userId !== "string" || !session.userId || session.userId.length > 128 ||
+      !["CUSTOMER", "PROVIDER", "ADMIN"].includes(String(session.role)) ||
+      !Number.isSafeInteger(session.exp) || (session.exp as number) * 1000 <= Date.now() ||
+      (session.name !== undefined && typeof session.name !== "string")
+    ) return null;
+    return session as SessionPayload;
   } catch {
     return null;
   }
 }
 
 /** Read the current session inside route handlers / server components. */
-export function getSession(): SessionPayload | null {
+export async function getSession(): Promise<SessionPayload | null> {
   try {
-    return verifySessionToken(cookies().get(COOKIE)?.value);
+    return verifySessionToken((await cookies()).get(COOKIE)?.value);
   } catch {
     return null;
   }

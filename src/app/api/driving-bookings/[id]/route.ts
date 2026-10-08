@@ -1,4 +1,4 @@
-﻿import { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 import { ok, fail, readJson } from "@/lib/http";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/session";
@@ -65,7 +65,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const session = getSession();
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
   const { id } = await ctx.params;
   const booking = await prisma.drivingBooking.findUnique({ where: { id } });

@@ -11,10 +11,10 @@ import {
 
 export const runtime = "nodejs";
 
-export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
-  const session = getSession();
+export async function GET(_req: NextRequest, ctx: { params: Promise<{  id: string  }> }) {
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
-  const booking = await getPublicBooking(ctx.params.id);
+  const booking = await getPublicBooking((await ctx.params).id);
   if (!booking) return fail("Booking not found", 404);
   // Ownership check: customer owner, provider owner, or admin
   const isAdmin = session.role === "ADMIN";
@@ -29,12 +29,12 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
 }
 
 /** State transitions with role checks (customer / provider / admin). */
-export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
-  const session = getSession();
+export async function PATCH(req: NextRequest, ctx: { params: Promise<{  id: string  }> }) {
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
   const b = await req.json().catch(() => ({}));
   const action = String(b.action || "");
-  const booking = await getPublicBooking(ctx.params.id);
+  const booking = await getPublicBooking((await ctx.params).id);
   if (!booking) return fail("Booking not found", 404);
 
   const isCustomerOwner = session.role === "CUSTOMER" && (booking as any).customerId === session.userId;
@@ -76,10 +76,10 @@ function publicize(b: any) {
   return rest;
 }
 
-export async function DELETE(req: NextRequest, ctx: { params: { id: string } }) {
-  const session = getSession();
+export async function DELETE(req: NextRequest, ctx: { params: Promise<{  id: string  }> }) {
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
-  const booking = await getPublicBooking(ctx.params.id);
+  const booking = await getPublicBooking((await ctx.params).id);
   if (!booking) return fail("Booking not found", 404);
   const isAdmin = session.role === "ADMIN";
   const isCustomerOwner = (booking as any).customerId === session.userId;
@@ -90,6 +90,6 @@ export async function DELETE(req: NextRequest, ctx: { params: { id: string } }) 
   }
   if (!isAdmin && !isCustomerOwner && !isProviderOwner) return fail("Not your booking", 403);
   if ((booking as any).status === "COMPLETED") return fail("Cannot delete a completed booking", 400);
-  await prisma.booking.delete({ where: { id: ctx.params.id } });
+  await prisma.booking.delete({ where: { id: (await ctx.params).id } });
   return ok({ deleted: true });
 }

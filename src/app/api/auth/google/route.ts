@@ -17,7 +17,7 @@ function getClientId(): string | null {
 
 export async function POST(req: NextRequest) {
   // Rate limit: 10 Google attempts per IP per minute
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.ip || "unknown";
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   const rl = checkRateLimit(`google:${ip}`, 10, 60_000);
   if (!rl.allowed) return fail("Too many attempts. Please try again shortly.", 429);
 
@@ -97,6 +97,8 @@ export async function POST(req: NextRequest) {
       });
     }
   }
+
+  if (user.status !== "ACTIVE") return fail("This account is unavailable. Contact support for help.", 403);
 
   const token = createSessionToken({ userId: user.id, role: user.role, name: user.name || undefined });
   const res = ok({ user: { id: user.id, name: user.name, email: user.email, phone: user.phone, avatarUrl: user.avatarUrl, role: user.role } });

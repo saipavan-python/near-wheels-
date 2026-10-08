@@ -17,20 +17,20 @@ async function findDriver(id: string) {
   return { prof: null, roster };
 }
 
-export async function generateMetadata({ params }: { params: { id: string } }) {
-  const { prof, roster } = await findDriver(params.id);
+export async function generateMetadata({ params }: { params: Promise<{  id: string  }> }) {
+  const { prof, roster } = await findDriver((await params).id);
   if (!prof && !roster) return { title: "Driver not found" };
   const name = prof?.provider.businessName || roster?.name;
   return {
     title: `${name} — Professional driver`,
     description: `Book ${name}, a verified driver in ${roster?.provider?.addressText || prof?.provider?.addressText || "your area"}, on Near Wheels. Rated by real travellers, transparent hourly pricing.`,
     openGraph: { images: [IMGS.driverProfile] },
-    alternates: { canonical: `/drivers/${params.id}` },
+    alternates: { canonical: `/drivers/${(await params).id}` },
   };
 }
 
-export default async function DriverDetail({ params }: { params: { id: string } }) {
-  const { prof, roster } = await findDriver(params.id);
+export default async function DriverDetail({ params }: { params: Promise<{  id: string  }> }) {
+  const { prof, roster } = await findDriver((await params).id);
   if ((!prof && !roster) || !(prof?.provider || roster?.provider)) notFound();
   const p: any = prof?.provider || roster!.provider;
   if (p.status !== "ACTIVE") notFound();

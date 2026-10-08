@@ -81,9 +81,14 @@ export async function PUT(req: NextRequest) {
   });
   if (!otp || !verifyOtpCode(otp.code, code)) return fail("That OTP is invalid or expired");
 
-  await prisma.otpCode.update({ where: { id: otp.id }, data: { consumed: true } });
-
   let user = await prisma.user.findUnique({ where: { phone } });
+  if (user && user.status !== "ACTIVE") return fail("This account is unavailable. Contact support for help.", 403);
+  const claimed = await prisma.otpCode.updateMany({
+    where: { id: otp.id, consumed: false, expiresAt: { gt: new Date() } },
+    data: { consumed: true },
+  });
+  if (claimed.count !== 1) return fail("That OTP is invalid or expired");
+
   if (!user) {
     // Check if there's a Google user with same email and phone missing? For OTP, we create with phone.
     // If a Google user exists with same phone placeholder, link

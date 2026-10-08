@@ -5,12 +5,12 @@ import { prisma } from "@/lib/db";
 
 export const runtime = "nodejs";
 
-export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
-  const session = getSession();
+export async function GET(_req: NextRequest, ctx: { params: Promise<{  id: string  }> }) {
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
 
   const booking = await prisma.booking.findUnique({
-    where: { id: ctx.params.id },
+    where: { id: (await ctx.params).id },
     include: {
       provider: { select: { businessName: true, phone: true, addressText: true } },
       customer: { select: { name: true, phone: true, email: true } },

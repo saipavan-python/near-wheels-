@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     const code = (req.nextUrl.searchParams.get("code") || "").trim().toUpperCase();
     if (!code) return fail("Booking code required", 400);
 
-    const session = getSession();
+    const session = await getSession();
     if (!session || (session.role !== "CUSTOMER" && session.role !== "ADMIN")) {
       return fail("Login required", 401);
     }

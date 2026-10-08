@@ -8,7 +8,8 @@ import { UserRound, CalendarDays, Heart, CreditCard, Star, XCircle, Building2, W
 interface Me {
   id: string;
   name?: string | null;
-  phone: string;
+  phone: string | null;
+  email?: string | null;
   role: string;
 }
 
@@ -56,11 +57,11 @@ export default function AccountPage() {
       <div className="card p-6">
         <div className="flex items-center gap-4">
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-brand-100 text-xl font-extrabold text-brand-800">
-            {(me.name || me.phone).slice(0, 1).toUpperCase()}
+            {(me.name || me.phone || me.email || "N").slice(0, 1).toUpperCase()}
           </span>
           <div className="min-w-0">
             <h1 className="truncate text-lg font-bold">{me.name || "Near Wheels customer"}</h1>
-            <p className="text-sm text-slate-500">+91 {me.phone} • {me.role}</p>
+            <p className="text-sm text-slate-500">{me.phone ? `+91 ${me.phone}` : me.email || "Account details"} • {me.role}</p>
           </div>
         </div>
 

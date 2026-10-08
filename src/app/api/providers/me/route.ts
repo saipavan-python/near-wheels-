@@ -6,7 +6,7 @@ import { bookingsForProvider } from "@/lib/services/bookingService";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const session = getSession();
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
   const provider = await prisma.provider.findFirst({
     where: { userId: session.userId },

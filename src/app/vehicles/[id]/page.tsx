@@ -18,8 +18,8 @@ const getVehicle = cache((id: string) =>
   prisma.vehicle.findUnique({ where: { id }, include: { provider: true } })
 );
 
-export async function generateMetadata({ params }: { params: { id: string } }) {
-  const v = await getVehicle(params.id);
+export async function generateMetadata({ params }: { params: Promise<{  id: string  }> }) {
+  const v = await getVehicle((await params).id);
   if (!v) return { title: "Vehicle not found" };
   return {
     title: `${v.title} — Rent in ${v.provider.addressText || v.provider.businessName}`,
@@ -29,8 +29,8 @@ export async function generateMetadata({ params }: { params: { id: string } }) {
   };
 }
 
-export default async function VehicleDetail({ params }: { params: { id: string } }) {
-  const v = await getVehicle(params.id);
+export default async function VehicleDetail({ params }: { params: Promise<{  id: string  }> }) {
+  const v = await getVehicle((await params).id);
   if (!v || v.status !== "ACTIVE") notFound();
   const p = v.provider;
 

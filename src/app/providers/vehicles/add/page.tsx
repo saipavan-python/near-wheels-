@@ -10,8 +10,8 @@ export const metadata: Metadata = {
   description: "Register a new vehicle to your provider account.",
 };
 
-export default function AddVehiclePage() {
-  const session = getSession();
+export default async function AddVehiclePage() {
+  const session = await getSession();
   if (!session) redirect("/login?next=/providers/vehicles/add");
   if (session.role !== "PROVIDER" && session.role !== "ADMIN") redirect("/providers/register");
 

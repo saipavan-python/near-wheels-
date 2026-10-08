@@ -55,19 +55,19 @@ export function generateStaticParams() {
   return Object.keys(MAP).map((t) => ({ type: t }));
 }
 
-export async function generateMetadata({ params }: { params: { type: string } }): Promise<Metadata> {
-  const cfg = MAP[params.type];
+export async function generateMetadata({ params }: { params: Promise<{  type: string  }> }): Promise<Metadata> {
+  const cfg = MAP[(await params).type];
   return {
     title: cfg ? `${cfg.title} — Near Wheels` : "Provider registration — Near Wheels",
     description: cfg?.blurb,
   };
 }
 
-export default function ProviderRegisterPage({ params }: { params: { type: string } }) {
-  const cfg = MAP[params.type];
+export default async function ProviderRegisterPage({ params }: { params: Promise<{  type: string  }> }) {
+  const cfg = MAP[(await params).type];
   if (!cfg) notFound();
   // Driving school has its own multi-step form — keep single source of truth at /driving-school/register
-  if (params.type === "driving-school") {
+  if ((await params).type === "driving-school") {
     redirect("/driving-school/register");
   }
   const { Icon } = cfg;

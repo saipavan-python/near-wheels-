@@ -8,11 +8,11 @@ import { requireAdmin } from "@/lib/adminAuth";
 
 export const runtime = "nodejs";
 
-export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
+export async function GET(_req: NextRequest, ctx: { params: Promise<{  id: string  }> }) {
   const admin = await requireAdmin();
   if (!admin) return fail("Admin only", 403);
   const booking = await prisma.booking.findUnique({
-    where: { id: ctx.params.id },
+    where: { id: (await ctx.params).id },
     include: {
       customer: { select: { name: true, phone: true, email: true } },
       provider: { select: { id: true, businessName: true, phone: true } },
@@ -22,25 +22,25 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
   return ok({ booking });
 }
 
-export async function DELETE(req: NextRequest, ctx: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, ctx: { params: Promise<{  id: string  }> }) {
   const admin = await requireAdmin();
   if (!admin) return fail("Admin only", 403);
-  const booking = await prisma.booking.findUnique({ where: { id: ctx.params.id } });
+  const booking = await prisma.booking.findUnique({ where: { id: (await ctx.params).id } });
   if (!booking) return fail("Booking not found", 404);
   if (booking.status === "COMPLETED") return fail("Cannot delete a completed booking", 400);
-  await prisma.booking.delete({ where: { id: ctx.params.id } });
+  await prisma.booking.delete({ where: { id: (await ctx.params).id } });
   await audit("ADMIN", admin.userId, "BOOKING_DELETE", "Booking", booking.id, { code: booking.code });
   return ok({ deleted: true });
 }
 
-export async function PATCH(req: NextRequest, ctx: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, ctx: { params: Promise<{  id: string  }> }) {
   const admin = await requireAdmin();
   if (!admin) return fail("Admin only", 403);
   const b = await req.json().catch(() => ({}));
   const action = String(b.action || "").toLowerCase();
   if (!["confirm", "reject", "cancel"].includes(action)) return fail("Invalid action: confirm, reject, cancel", 400);
 
-  const booking = await prisma.booking.findUnique({ where: { id: ctx.params.id } });
+  const booking = await prisma.booking.findUnique({ where: { id: (await ctx.params).id } });
   if (!booking) return fail("Booking not found", 404);
 
   try {

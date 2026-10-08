@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   const b = await req.json().catch(() => ({}));
-  const session = getSession();
+  const session = await getSession();
 
   const driverName = b.driverName?.trim() || session?.name || "Verified Driver";
   const driverPhone = b.driverPhone?.trim() || "9876543210";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Car,
@@ -17,7 +17,8 @@ import {
 } from "lucide-react";
 import { inr } from "@/lib/ui";
 
-export default function LiveRidePage({ params }: { params: { id: string } }) {
+export default function LiveRidePage({ params }: { params: Promise<{  id: string  }> }) {
+  const { id } = use(params);
   const [ride, setRide] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -28,14 +29,14 @@ export default function LiveRidePage({ params }: { params: { id: string } }) {
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/share-rides/${params.id}`)
+    fetch(`/api/share-rides/${id}`)
       .then((r) => r.json())
       .then((d) => {
         setRide(d.ride);
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [params.id]);
+  }, [id]);
 
   if (loading) {
     return <div className="py-20 text-center text-sm font-semibold text-slate-500">Loading live ride…</div>;

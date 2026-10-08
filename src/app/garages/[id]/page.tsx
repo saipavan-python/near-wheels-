@@ -27,19 +27,19 @@ const SERVICE_LABELS: Record<string, string> = {
   EMERGENCY: "Emergency response",
 };
 
-export async function generateMetadata({ params }: { params: { id: string } }) {
-  const g = await getGarage(params.id);
+export async function generateMetadata({ params }: { params: Promise<{  id: string  }> }) {
+  const g = await getGarage((await params).id);
   if (!g) return { title: "Garage not found" };
   return {
     title: `${g.provider.businessName} — Vehicle service & repair`,
     description: `Trusted garage in ${g.provider.addressText || "your area"}. ${g.open24x7 ? "Open 24×7." : `Open ${g.opensAt || "08:00"}–${g.closesAt || "20:00"}.`} Verified mechanics, transparent pricing on Near Wheels.`,
     openGraph: { images: [garageImage(g.id)] },
-    alternates: { canonical: `/garages/${params.id}` },
+    alternates: { canonical: `/garages/${(await params).id}` },
   };
 }
 
-export default async function GarageDetail({ params }: { params: { id: string } }) {
-  const prof = await getGarage(params.id);
+export default async function GarageDetail({ params }: { params: Promise<{  id: string  }> }) {
+  const prof = await getGarage((await params).id);
   if (!prof || prof.provider.status !== "ACTIVE") notFound();
   const p = prof.provider;
 

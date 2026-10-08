@@ -22,7 +22,14 @@ function getLocations(): Promise<Location[]> {
   if (locationCache.promise && now - locationCache.loadedAt < LOCATION_CACHE_TTL_MS) {
     return locationCache.promise;
   }
-  const p = prisma.location.findMany();
+  let p!: Promise<Location[]>;
+  p = prisma.location.findMany().catch((error) => {
+    if (locationCache.promise === p) {
+      locationCache.promise = null;
+      locationCache.loadedAt = 0;
+    }
+    throw error;
+  });
   locationCache.promise = p;
   locationCache.loadedAt = now;
   return p;

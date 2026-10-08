@@ -13,7 +13,7 @@ function getWebhookSecret(): string {
 
 /** Step 1: create a payment intent for a booking. */
 export async function POST(req: NextRequest) {
-  const session = getSession();
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
   const { checkRateLimit, getClientIp } = await import("@/lib/rateLimit");
   const ip = getClientIp(req);
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
  * Razorpay webhook signature verification added.
  */
 export async function PUT(req: NextRequest) {
-  const session = getSession();
+  const session = await getSession();
   const webhookSecret = getWebhookSecret();
   const headerSecret = req.headers.get("x-webhook-secret");
   const isWebhook = webhookSecret && headerSecret === webhookSecret;

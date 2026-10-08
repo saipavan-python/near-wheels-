@@ -4,12 +4,12 @@ import { fail, ok } from "@/lib/http";
 import { getSession } from "@/lib/session";
 import { operatorForUser } from "@/lib/services/yatraService";
 
-export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
-  const session = getSession();
+export async function POST(_req: NextRequest, { params }: { params: Promise<{  id: string  }> }) {
+  const session = await getSession();
   if (!session) return fail("Authentication required", 401);
   const operator = await operatorForUser(session.userId);
   if (!operator) return fail("Vehicle-owner access required", 403);
-  const result = await prisma.yatraBusPackage.updateMany({ where: { id: params.id, operatorId: operator.id }, data: { status: "CANCELLED", isPublished: false, isActive: false } });
+  const result = await prisma.yatraBusPackage.updateMany({ where: { id: (await params).id, operatorId: operator.id }, data: { status: "CANCELLED", isPublished: false, isActive: false } });
   if (!result.count) return fail("Package not found", 404);
   return ok({ cancelled: true });
 }

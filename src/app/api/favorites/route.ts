@@ -6,7 +6,7 @@ import { ok, fail } from "@/lib/http";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const session = getSession();
+  const session = await getSession();
   if (!session) return ok({ favorites: [] });
   const favs = await prisma.favorite.findMany({
     where: { customerId: session.userId },
@@ -16,7 +16,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = getSession();
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
   const b = await req.json().catch(() => ({}));
   const providerId = String(b.providerId || "");
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const session = getSession();
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
   const b = await req.json().catch(() => ({}));
   const favoriteId = String(b.favoriteId || "");

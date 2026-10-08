@@ -10,11 +10,11 @@ export const runtime = "nodejs";
  * POST { phase: "PICKUP" | "DROPOFF", photoUrl } — stores evidence (customer or provider).
  * GET — returns evidence + OTP status for the participants.
  */
-export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
-  const session = getSession();
+export async function GET(_req: NextRequest, ctx: { params: Promise<{  id: string  }> }) {
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
   const booking = await prisma.booking.findUnique({
-    where: { id: ctx.params.id },
+    where: { id: (await ctx.params).id },
     select: {
       id: true,
       customerId: true,
@@ -54,8 +54,8 @@ export async function GET(_req: NextRequest, ctx: { params: { id: string } }) {
   });
 }
 
-export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
-  const session = getSession();
+export async function POST(req: NextRequest, ctx: { params: Promise<{  id: string  }> }) {
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
   const b = await req.json().catch(() => ({}));
   const phase = String(b.phase || "").toUpperCase();
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
   if (!["PICKUP", "DROPOFF"].includes(phase)) return fail("phase must be PICKUP or DROPOFF");
   if (!photoUrl) return fail("photoUrl is required");
 
-  const booking = await prisma.booking.findUnique({ where: { id: ctx.params.id } });
+  const booking = await prisma.booking.findUnique({ where: { id: (await ctx.params).id } });
   if (!booking) return fail("Booking not found", 404);
   const isCustomer = booking.customerId === session.userId;
   const isAdmin = session.role === "ADMIN";
@@ -78,6 +78,6 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     phase === "PICKUP"
       ? { pickupPhotoUrl: photoUrl }
       : { dropoffPhotoUrl: photoUrl };
-  await prisma.booking.update({ where: { id: ctx.params.id }, data });
+  await prisma.booking.update({ where: { id: (await ctx.params).id }, data });
   return ok({ saved: true, photoUrl });
 }

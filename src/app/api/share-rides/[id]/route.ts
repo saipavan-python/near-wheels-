@@ -9,9 +9,9 @@ export const runtime = "nodejs";
 /**
  * GET /api/share-rides/[id]
  */
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{  id: string  }> }) {
   const ride = await prisma.sharedRide.findUnique({
-    where: { id: params.id },
+    where: { id: (await params).id },
     include: { bookings: true },
   });
 
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
  * POST /api/share-rides/[id]/request
  * Book/Request seats on this ride
  */
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{  id: string  }> }) {
   const b = await req.json().catch(() => ({}));
   const passengerName = b.passengerName?.trim();
   const passengerPhone = b.passengerPhone?.trim();
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return fail("Passenger name and valid mobile number are required.");
   }
 
-  const ride = await prisma.sharedRide.findUnique({ where: { id: params.id } });
+  const ride = await prisma.sharedRide.findUnique({ where: { id: (await params).id } });
   if (!ride) return fail("Ride not found", 404);
 
   if (ride.availableSeats < seatsBooked) {
@@ -75,16 +75,16 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return ok({ booking, ride: updatedRide, driverPhone: ride.driverPhone, driverName: ride.driverName, message: "Seat request confirmed!" });
 }
 
-export async function DELETE(req: NextRequest, ctx: { params: { id: string } }) {
-  const session = getSession();
+export async function DELETE(req: NextRequest, ctx: { params: Promise<{  id: string  }> }) {
+  const session = await getSession();
   if (!session) return fail("Login required", 401);
-  const ride = await prisma.sharedRide.findUnique({ where: { id: ctx.params.id } });
+  const ride = await prisma.sharedRide.findUnique({ where: { id: (await ctx.params).id } });
   if (!ride) return fail("Ride not found", 404);
   if (session.role !== "ADMIN") {
     const user = await prisma.user.findUnique({ where: { id: session.userId } });
     if (!user || ride.driverPhone !== user.phone) return fail("Not authorized", 403);
   }
-  await prisma.sharedRide.delete({ where: { id: ctx.params.id } });
-  await audit("USER", session.userId, "SHARE_RIDE_DELETE", "SharedRide", ctx.params.id, {});
+  await prisma.sharedRide.delete({ where: { id: (await ctx.params).id } });
+  await audit("USER", session.userId, "SHARE_RIDE_DELETE", "SharedRide", (await ctx.params).id, {});
   return ok({ deleted: true });
 }

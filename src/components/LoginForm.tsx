@@ -6,6 +6,16 @@ import { ShieldCheck, ArrowRight, Mail, Lock, Eye, EyeOff, User, Building2 } fro
 import { api } from "@/lib/ui";
 import GoogleLoginButton from "./GoogleLoginButton";
 
+function safeReturnTo(value: string | null | undefined): string | null {
+  if (!value || !value.startsWith("/") || value.startsWith("//") || value.includes("\\") || /[\u0000-\u001f]/.test(value)) return null;
+  try {
+    const url = new URL(value, window.location.origin);
+    return url.origin === window.location.origin ? `${url.pathname}${url.search}${url.hash}` : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * ONE LOGIN — clean, Airbnb/Uber-inspired
  * Supports explicit account role selection (As Customer vs As Provider)
@@ -106,9 +116,9 @@ export default function LoginForm({ onDone }: { onDone?: () => void }) {
       if (pending) window.dispatchEvent(new CustomEvent("nw:auth-booking-pending", { detail: JSON.parse(pending) }));
       
       const searchParams = new URLSearchParams(window.location.search);
-      const returnTo = searchParams.get("returnTo") || searchParams.get("next") || sessionStorage.getItem("nw_redirect_next");
+      const returnTo = safeReturnTo(searchParams.get("returnTo") || searchParams.get("next") || sessionStorage.getItem("nw_redirect_next"));
+      sessionStorage.removeItem("nw_redirect_next");
       if (returnTo && returnTo !== window.location.pathname) {
-        sessionStorage.removeItem("nw_redirect_next");
         setTimeout(() => { window.location.href = returnTo; }, 500);
         setTimeout(() => onDone?.(), 700);
         return;

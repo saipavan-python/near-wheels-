@@ -1,4 +1,4 @@
-﻿// @ts-nocheck â€” SQLite mode insensitive + Json string casting handled at runtime
+// @ts-nocheck â€” SQLite mode insensitive + Json string casting handled at runtime
 import { NextRequest } from "next/server";
 import { ok, fail, readJson } from "@/lib/http";
 import { prisma } from "@/lib/db";
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
     const phoneDigits = body.phone.replace(/\D/g, "");
 
-    let session = getSession();
+    let session = await getSession();
     let userId = session?.userId;
 
     if (!userId) {
